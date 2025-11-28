@@ -1,6 +1,7 @@
 """
-Dump 1 minute stock data and save it as parquet 
+Dump 1 minute stock data and save it as parquet
 """
+
 import argparse
 import os
 from pathlib import Path
@@ -28,7 +29,9 @@ def fetch_minute_prices(symbol: str, date_str: str, api_key: str) -> pl.DataFram
         raise ValueError("Polygon API key is required")
 
     iso_date = _normalize_date(date_str)
-    url = POLYGON_URL_TEMPLATE.format(ticker=symbol.upper(), start=iso_date, end=iso_date)
+    url = POLYGON_URL_TEMPLATE.format(
+        ticker=symbol.upper(), start=iso_date, end=iso_date
+    )
     params = {
         "adjusted": "true",
         "sort": "asc",
@@ -41,7 +44,9 @@ def fetch_minute_prices(symbol: str, date_str: str, api_key: str) -> pl.DataFram
     payload = resp.json()
 
     if payload.get("status") != "OK":
-        message = payload.get("error") or payload.get("message") or "Polygon request failed"
+        message = (
+            payload.get("error") or payload.get("message") or "Polygon request failed"
+        )
         raise RuntimeError(f"Polygon API error: {message}")
 
     results = payload.get("results")
@@ -54,12 +59,14 @@ def fetch_minute_prices(symbol: str, date_str: str, api_key: str) -> pl.DataFram
 
     dataset = df.select(
         pl.lit(symbol.upper()).alias("sym"),
-        pl.col("t").cast(pl.Datetime("ns")).alias("time"),
+        pl.col("t")
+        .cast(pl.Datetime("ms"))
+        .dt.cast_time_unit("ns")
+        .dt.convert_time_zone(time_zone="America/New_York")
+        .alias("time"),
         pl.col("c").cast(pl.Float64).alias("stock_price"),
     )
     return dataset
-
-
 
 
 def write_parquet(df: pl.DataFrame, output_path: Path) -> Path:
@@ -100,13 +107,15 @@ def main() -> None:
     args = parser.parse_args()
     api_key = args.api_key or os.getenv("POLYGON_API_KEY")
     if not api_key:
-        raise SystemExit("Polygon API key missing. Provide --api-key or set POLYGON_API_KEY.")
+        raise SystemExit(
+            "Polygon API key missing. Provide --api-key or set POLYGON_API_KEY."
+        )
 
     dataset = fetch_minute_prices(args.symbol, args.date, api_key)
     output_path = Path(args.output).expanduser()
     write_parquet(dataset, output_path)
     print(f"Wrote {len(dataset)} rows to {output_path}")
 
+
 if __name__ == "__main__":
     main()
-

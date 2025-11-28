@@ -1,3 +1,6 @@
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 import polars as pl
 
@@ -12,3 +15,22 @@ def test__T_returns_full_column_representation():
     df = Ds(data)
 
     result = df._T
+
+
+def test_ds_s():
+    data_path = Path(__file__).resolve().parent.parent / "data" / "UBER_20241211_minute.parquet"
+    source = pl.read_parquet(data_path)
+    df = Ds(source)
+
+    filtered = df.s(
+        sym="UBER",
+        time_start="09:05",
+        time_end="09:07",
+        col_names=["stock_price"],
+        date="20241211",
+    )
+
+    assert isinstance(filtered, Ds)
+    assert filtered.columns == ["sym", "time", "stock_price"]
+    assert filtered.shape == (3, 3)
+
