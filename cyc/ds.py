@@ -1,7 +1,10 @@
+from datetime import datetime
 from typing import Optional
 import polars as pl
 import shutil
 import altair as alt
+
+from .util import parse_time_to_ns
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 alt.renderers.enable("browser")
@@ -64,8 +67,36 @@ class Ds(pl.DataFrame):
             sym: TSLA
             time_start: "9:40" or "9:40:03.5"
             time_end: "9:40" or "9:40:03.5"
+            date: "20250102"
         """
-        pass
+        selected_cols = []
+        for name in ["sym", "time", *col_names]:
+            if name not in selected_cols:
+                selected_cols.append(name)
+
+        filters = []
+        if sym is not None:
+            filters.append(pl.col("sym") == sym)
+
+        time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
+        if time_start is not None:
+            filters.append(time_since_midnight >= pl.duration(nanoseconds=parse_time_to_ns(time_start)))
+        if time_end is not None:
+            filters.append(time_since_midnight <= pl.duration(nanoseconds=parse_time_to_ns(time_end)))
+
+        if date is not None:
+            date_value = datetime.strptime(date, "%Y%m%d").date()
+            filters.append(pl.col("time").dt.date() == date_value)
+
+        df: pl.DataFrame = self
+        if filters:
+            combined = filters[0]
+            for condition in filters[1:]:
+                combined = combined & condition
+            df = df.filter(combined)
+
+        df = df.select(selected_cols)
+        return self.__class__(df)
 
     def __getattr__(self, name):
         if name in self.columns:
