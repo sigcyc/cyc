@@ -64,7 +64,9 @@ def fetch_minute_prices(symbol: str, date_str: str, api_key: str) -> pl.DataFram
         .dt.cast_time_unit("ns")
         .dt.convert_time_zone(time_zone="America/New_York")
         .alias("time"),
-        pl.col("c").cast(pl.Float64).alias("stock_price"),
+        pl.col("c").cast(pl.Float32).alias("price"),
+        pl.col("v").cast(pl.Float32).alias("dollar_delta"),
+        pl.col("vw").cast(pl.Float32).alias("price_vwap")
     )
     return dataset
 

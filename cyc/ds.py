@@ -98,6 +98,7 @@ class Ds(pl.DataFrame):
         df = df.select(selected_cols)
         return self.__class__(df)
 
+
     def __getattr__(self, name):
         if name in self.columns:
             return self[name]
