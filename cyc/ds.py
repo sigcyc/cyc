@@ -12,6 +12,11 @@ def get_terminal_size():
 
 
 class Ds(pl.DataFrame):
+    """
+    Attribute:
+        time: pl.Datetime("ns")
+    """
+
     @property
     def _T(self):
         """Return the full column representation without altering global config."""
@@ -38,7 +43,29 @@ class Ds(pl.DataFrame):
                 if start + chunk_size < len(self.columns):
                     print()
 
-    def f(self, col_names, sym, time_start, time_end, date, 
+    def s(
+        self,
+        sym: Optional[str],
+        time_start: Optional[str],
+        time_end: Optional[str],
+        col_names: list[str],
+        date: Optional[str],
+    ):
+        """
+        Filter the columns to sym + time + col_names, then
+
+        Filter Ds by
+        1. self.sym == sym is sym is not None
+        2. self.time is greater than time_start if time_start is not None
+        3. self.time is less than time_end if time_end is not None
+        3. date of self.time equal to date if date is not None
+
+        Args:
+            sym: TSLA
+            time_start: "9:40" or "9:40:03.5"
+            time_end: "9:40" or "9:40:03.5"
+        """
+        pass
 
     def __getattr__(self, name):
         if name in self.columns:
