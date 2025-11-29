@@ -8,7 +8,7 @@ def parse_time_to_ns(raw: str) -> int:
         raise ValueError("time string cannot be empty")
 
     parts = raw.split(":")
-    if len(parts) < 2 or len(parts) > 3:
+    if len(parts) > 3:
         raise ValueError(f"Invalid time string '{raw}'")
 
     sec_part = parts[2] if len(parts) == 3 else "0"
@@ -19,7 +19,7 @@ def parse_time_to_ns(raw: str) -> int:
 
     try:
         hour = int(parts[0])
-        minute = int(parts[1])
+        minute = int(parts[1]) if len(parts) > 2 else 0
         second = int(sec_str) if sec_str else 0
     except ValueError as exc:
         raise ValueError(f"Invalid time string '{raw}'") from exc

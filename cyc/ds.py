@@ -52,8 +52,8 @@ class Ds(pl.DataFrame):
         time_start: Optional[str],
         time_end: Optional[str],
         col_names: list[str],
-        date: Optional[str],
-    ):
+        date: Optional[str] = None,
+    ) -> "Ds":
         """
         Filter the columns to sym + time + col_names, then
 
@@ -80,9 +80,15 @@ class Ds(pl.DataFrame):
 
         time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
         if time_start is not None:
-            filters.append(time_since_midnight >= pl.duration(nanoseconds=parse_time_to_ns(time_start)))
+            filters.append(
+                time_since_midnight
+                >= pl.duration(nanoseconds=parse_time_to_ns(time_start))
+            )
         if time_end is not None:
-            filters.append(time_since_midnight <= pl.duration(nanoseconds=parse_time_to_ns(time_end)))
+            filters.append(
+                time_since_midnight
+                <= pl.duration(nanoseconds=parse_time_to_ns(time_end))
+            )
 
         if date is not None:
             date_value = datetime.strptime(date, "%Y%m%d").date()
@@ -98,6 +104,62 @@ class Ds(pl.DataFrame):
         df = df.select(selected_cols)
         return self.__class__(df)
 
+    def p(
+        self, left_axis: list[int], right_axis: Optional[list[int]] = None
+    ) -> alt.LayerChart:
+        """
+        Use alt chart that
+        1. use self.time as x-axis
+        2. Plot the columns in left_axis on the left y-axis
+        3. Plot the columns in right-axis on the right y-axis
+
+        Args:
+            left_axis: list of column index to plot on the left y-axis
+            right_axis: list of column index to plot on the right y-axis
+        """
+        time_col = "time"
+        right_axis = right_axis or []
+        left_cols = [
+            self.columns[i + 2] for i in left_axis
+        ]  # +2 because the first two columns are sym, time
+        right_cols = [self.columns[i + 2] for i in right_axis]
+
+        base = alt.Chart(self).encode(x=f"{time_col}:T")
+
+        tooltip = [
+            alt.Tooltip(f"{time_col}:T", title=time_col),
+            alt.Tooltip("series:N", title="series"),
+            alt.Tooltip("value:Q", title="value"),
+        ]
+
+        left_chart = (
+            base.transform_fold(left_cols, as_=["series", "value"])
+            .mark_line()
+            .encode(
+                y=alt.Y(
+                    "value:Q",
+                    axis=alt.Axis(title=",".join(left_cols), orient="left"),
+                    scale=alt.Scale(zero=False),
+                ),
+                color="series:N",
+                tooltip=tooltip,
+            )
+        )
+        right_chart = (
+            base.transform_fold(right_cols, as_=["series", "value"])
+            .mark_line()
+            .encode(
+                y=alt.Y(
+                    "value:Q",
+                    axis=alt.Axis(title=",".join(right_cols), orient="right"),
+                    scale=alt.Scale(zero=False),
+                ),
+                color="series:N",
+                tooltip=tooltip,
+            )
+        )
+
+        return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
     def __getattr__(self, name):
         if name in self.columns:
