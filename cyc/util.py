@@ -19,7 +19,7 @@ def parse_time_to_ns(raw: str) -> int:
 
     try:
         hour = int(parts[0])
-        minute = int(parts[1]) if len(parts) > 2 else 0
+        minute = int(parts[1]) if len(parts) >= 2 else 0
         second = int(sec_str) if sec_str else 0
     except ValueError as exc:
         raise ValueError(f"Invalid time string '{raw}'") from exc

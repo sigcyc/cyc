@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, cast
 import polars as pl
 import shutil
 import altair as alt
@@ -133,7 +133,9 @@ class Ds(pl.DataFrame):
         ]
 
         left_chart = (
-            base.transform_fold(left_cols, as_=["series", "value"])
+            base.transform_fold(
+                cast(list[str | alt.FieldName], left_cols), as_=["series", "value"]
+            )
             .mark_line()
             .encode(
                 y=alt.Y(
@@ -146,12 +148,18 @@ class Ds(pl.DataFrame):
             )
         )
         right_chart = (
-            base.transform_fold(right_cols, as_=["series", "value"])
+            base.transform_fold(
+                cast(list[str | alt.FieldName], right_cols), as_=["series", "value"]
+            )
             .mark_line()
             .encode(
                 y=alt.Y(
                     "value:Q",
-                    axis=alt.Axis(title=",".join(right_cols), orient="right"),
+                    axis=alt.Axis(
+                        title=",".join(right_cols),
+                        orient="right",
+                        titleAngle=270,
+                    ),
                     scale=alt.Scale(zero=False),
                 ),
                 color="series:N",
@@ -165,3 +173,4 @@ class Ds(pl.DataFrame):
         if name in self.columns:
             return self[name]
         return getattr(super(), name)
+
