@@ -63,16 +63,16 @@ class Ds(pl.DataFrame):
         3. self.time is less than time_end if time_end is not None
         3. date of self.time equal to date if date is not None
 
+        col_names: list of column names. We support operation on column names when the name contains ":".
+        For example, if the name is "volume:cumsum", then the function will run a cumsum on that column
+
         Args:
             sym: TSLA
             time_start: "9:40" or "9:40:03.5"
             time_end: "9:40" or "9:40:03.5"
             date: "20250102"
         """
-        selected_cols = []
-        for name in ["sym", "time", *col_names]:
-            if name not in selected_cols:
-                selected_cols.append(name)
+        selected_cols = ["sym", "time"] + col_names
 
         filters = []
         if sym is not None:
@@ -94,14 +94,13 @@ class Ds(pl.DataFrame):
             date_value = datetime.strptime(date, "%Y%m%d").date()
             filters.append(pl.col("time").dt.date() == date_value)
 
-        df: pl.DataFrame = self
+        df = self.select(selected_cols)
         if filters:
             combined = filters[0]
             for condition in filters[1:]:
                 combined = combined & condition
             df = df.filter(combined)
 
-        df = df.select(selected_cols)
         return self.__class__(df)
 
     def p(
