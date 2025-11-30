@@ -114,7 +114,7 @@ def main() -> None:
         )
 
     dataset = fetch_minute_prices(args.symbol, args.date, api_key)
-    output_path = Path(args.output).expanduser()
+    output_path = Path(f"data/{args.symbol}_{args.date}_minute.parquet").expanduser()
     write_parquet(dataset, output_path)
     print(f"Wrote {len(dataset)} rows to {output_path}")
 

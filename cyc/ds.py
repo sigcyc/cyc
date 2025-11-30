@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, cast
+from typing import Literal, Optional, cast
 import polars as pl
 import shutil
 import altair as alt
@@ -72,7 +72,14 @@ class Ds(pl.DataFrame):
             time_end: "9:40" or "9:40:03.5"
             date: "20250102"
         """
-        selected_cols = ["sym", "time"] + col_names
+        col_list = ["sym", "time"]
+        col_list_cumsum = []
+        for col_name in col_names:
+            name, *op = col_name.split(":")
+            col_list.append(name)
+            if len(op) == 0:
+                continue
+            col_list_cumsum.append(name)
 
         filters = []
         if sym is not None:
@@ -94,17 +101,21 @@ class Ds(pl.DataFrame):
             date_value = datetime.strptime(date, "%Y%m%d").date()
             filters.append(pl.col("time").dt.date() == date_value)
 
-        df = self.select(selected_cols)
+        df = self.select(col_list)
         if filters:
             combined = filters[0]
             for condition in filters[1:]:
                 combined = combined & condition
             df = df.filter(combined)
+        df = df.with_columns([pl.col(name).cum_sum() for name in col_list_cumsum])
 
         return self.__class__(df)
 
     def p(
-        self, left_axis: list[int], right_axis: Optional[list[int]] = None
+        self,
+        left_axis: list[int],
+        right_axis: Optional[list[int]] = None,
+        width=600,
     ) -> alt.LayerChart:
         """
         Use alt chart that
@@ -116,17 +127,16 @@ class Ds(pl.DataFrame):
             left_axis: list of column index to plot on the left y-axis
             right_axis: list of column index to plot on the right y-axis
         """
-        time_col = "time"
         right_axis = right_axis or []
         left_cols = [
             self.columns[i + 2] for i in left_axis
         ]  # +2 because the first two columns are sym, time
         right_cols = [self.columns[i + 2] for i in right_axis]
 
-        base = alt.Chart(self).encode(x=f"{time_col}:T")
+        base = alt.Chart(self).encode(x=f"time:T").properties(width=width)
 
         tooltip = [
-            alt.Tooltip(f"{time_col}:T", title=time_col),
+            alt.Tooltip(f"time:T", title="time"),
             alt.Tooltip("series:N", title="series"),
             alt.Tooltip("value:Q", title="value"),
         ]
@@ -154,11 +164,7 @@ class Ds(pl.DataFrame):
             .encode(
                 y=alt.Y(
                     "value:Q",
-                    axis=alt.Axis(
-                        title=",".join(right_cols),
-                        orient="right",
-                        titleAngle=270,
-                    ),
+                    axis=alt.Axis(title=",".join(right_cols), orient="right"),
                     scale=alt.Scale(zero=False),
                 ),
                 color="series:N",
@@ -172,4 +178,3 @@ class Ds(pl.DataFrame):
         if name in self.columns:
             return self[name]
         return getattr(super(), name)
-
