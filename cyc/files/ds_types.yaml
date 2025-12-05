@@ -4,7 +4,7 @@ futures_report:
   sym: Market_and_Exchange_Names
   time: Report_Date_as_YYYY-MM-DD
   data:
-    path: 
+    path: ~/workspace/futures_report 
 
 polygon_test:
   cols:
