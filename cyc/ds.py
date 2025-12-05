@@ -61,7 +61,7 @@ class Ds(pl.DataFrame):
     @classmethod
     def load_data_single(cls, ds_type: str):
         data_path = _get_ds_type_dict(ds_type)["data"]["path"]
-        return pl.read_parquet(Path(data_path) / f"{ds_type}.parquet")
+        return cls(pl.read_parquet(Path(data_path) / f"{ds_type}.parquet")).i(ds_type)
 
     @classmethod
     def load_data(cls, date_str: str, ds_type: str):
