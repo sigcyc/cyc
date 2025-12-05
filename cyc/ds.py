@@ -11,7 +11,6 @@ import yaml
 
 from .time_util import parse_time_to_ns, parse_dates
 
-
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 alt.renderers.enable("browser")
 
@@ -266,7 +265,7 @@ class Ds(pl.DataFrame):
 
         return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         if name in self.columns:
             return self[name]
         return getattr(super(), name)
