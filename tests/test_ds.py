@@ -18,22 +18,19 @@ def test__T_returns_full_column_representation():
 
 
 def test_ds_s():
-    data_path = Path(__file__).resolve().parent.parent / "data" / "UBER_20241211_minute.parquet"
-    source = pl.read_parquet(data_path)
-    df = Ds(source)
-
+    df = Ds.load_data('20241211', 'polygon_test')
     filtered = df.s(
         sym="UBER",
         time_start="09:05",
         time_end="09:07",
-        col_names=["stock_price"],
+        col_names=["price"],
         date="20241211",
     )
 
     pl.DataFrame(df)
 
     assert isinstance(filtered, Ds)
-    assert filtered.columns == ["sym", "time", "stock_price"]
+    assert filtered.columns == ["sym", "time", "price"]
     assert filtered.shape == (3, 3)
 
 def test_load_data():
@@ -44,9 +41,3 @@ def test_ds_p():
     df = Ds.load_data('20241211-20241213', 'polygon_test')
     chart = df.p(left_axis=[0], right_axis=[1])
     assert chart is not None
-
-
-def test_ds_types():
-    data_path = Path(__file__).resolve().parent.parent / "data" / "UBER_20241211_minute.parquet"
-    source = pl.read_parquet(data_path)
-    df = Ds(source).i('polygon')

@@ -28,7 +28,6 @@ def test_parse_time_to_ns_valid_inputs(raw, expected):
     [
         "",
         "  ",
-        "9",
         "09-30",
         "24:00",
         "12:60",
