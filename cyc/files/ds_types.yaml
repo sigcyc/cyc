@@ -2,7 +2,7 @@ futures_report:
   cols:
     core: [sym, time]
   sym: Market_and_Exchange_Names
-  time: Report_Date_as_YYYY-MM-DD
+  time: date
   data:
     path: ~/workspace/futures_report 
 

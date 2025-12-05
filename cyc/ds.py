@@ -20,6 +20,42 @@ def get_terminal_size():
     return shutil.get_terminal_size().columns - 5
 
 
+def _print_transpose(df: pl.DataFrame) -> None:
+    """Return the full column representation without altering global config."""
+    with pl.Config(
+        tbl_rows=-1,
+        tbl_cols=-1,
+        tbl_width_chars=get_terminal_size(),
+    ):
+        print(repr(df.head(3).transpose(include_header=True)))
+
+
+def _print_all(
+    df: pl.DataFrame,
+    float_precision: Optional[int] = 4,
+    fmt_str_lengths: Optional[int] = 100,
+) -> None:
+    """Print the entire DataFrame content in terminal-width-sized chunks."""
+    terminal_width = get_terminal_size()
+    chunk_size = max(1, terminal_width // 12)
+    with pl.Config(
+        tbl_rows=-1,
+        tbl_cols=-1,
+        tbl_width_chars=terminal_width,
+        float_precision=float_precision,
+        fmt_str_lengths=fmt_str_lengths,
+    ):
+        for start in range(0, len(df.columns), chunk_size):
+            cols = df.columns[start : start + chunk_size]
+            print(repr(df.select(cols)))
+            if start + chunk_size < len(df.columns):
+                print()
+
+
+setattr(pl.DataFrame, "T", property(_print_transpose))
+setattr(pl.DataFrame, "A", property(_print_all))
+
+
 class DsType(TypedDict):
     cols: dict[str, list[str]]
     sym: str
@@ -89,32 +125,6 @@ class Ds(pl.DataFrame):
 
         combined = pl.concat(frames, how="vertical_relaxed", rechunk=True)
         return cls(combined).i(ds_type)
-
-    @property
-    def _T(self):
-        """Return the full column representation without altering global config."""
-        with pl.Config(
-            tbl_rows=-1,
-            tbl_cols=-1,
-            tbl_width_chars=get_terminal_size(),
-        ):
-            print(repr(self.head(3).transpose(include_header=True)))
-
-    @property
-    def _A(self, float_precision: Optional[int] = 4):
-        terminal_width = get_terminal_size()
-        chunk_size = max(1, terminal_width // 12)
-        with pl.Config(
-            tbl_rows=-1,
-            tbl_cols=-1,
-            tbl_width_chars=terminal_width,
-            float_precision=float_precision,
-        ):
-            for start in range(0, len(self.columns), chunk_size):
-                cols = self.columns[start : start + chunk_size]
-                print(repr(self.select(cols)))
-                if start + chunk_size < len(self.columns):
-                    print()
 
     def s(
         self,
