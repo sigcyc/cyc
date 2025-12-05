@@ -1,6 +1,6 @@
 import pytest
 
-from cyc.util import parse_time_to_ns
+from cyc.time_util import parse_time_to_ns, parse_dates
 
 
 def _ns(hours: int, minutes: int, seconds: int, nanos: int = 0) -> int:
@@ -39,3 +39,31 @@ def test_parse_time_to_ns_valid_inputs(raw, expected):
 def test_parse_time_to_ns_invalid_inputs(raw):
     with pytest.raises(ValueError):
         parse_time_to_ns(raw)
+
+
+
+
+def test_parse_date_skips_weekends():
+    assert parse_dates("20241211-20241216") == [
+        "20241211",
+        "20241212",
+        "20241213",
+        "20241216",
+    ]
+
+
+def test_parse_date_skips_holidays():
+    # Christmas Day 2023 is a Monday and should be excluded
+    assert parse_dates("20231222-20231227") == [
+        "20231222",
+        "20231226",
+        "20231227",
+    ]
+
+
+def test_parse_date_rejects_invalid_ranges():
+    with pytest.raises(ValueError):
+        parse_dates("20240105-20240101")
+
+    with pytest.raises(ValueError):
+        parse_dates("bad-input")

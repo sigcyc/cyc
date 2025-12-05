@@ -1,0 +1,17 @@
+futures_report:
+  cols:
+    core: [sym, time]
+  sym: Market_and_Exchange_Names
+  time: Report_Date_as_YYYY-MM-DD
+  data:
+    path: 
+
+polygon_test:
+  cols:
+    core: [sym, time, price]
+  sym: sym
+  time: time
+  data:
+    path: /Users/yichenchen/workspace/cyc/data
+
+

@@ -30,7 +30,23 @@ def test_ds_s():
         date="20241211",
     )
 
+    pl.DataFrame(df)
+
     assert isinstance(filtered, Ds)
     assert filtered.columns == ["sym", "time", "stock_price"]
     assert filtered.shape == (3, 3)
 
+def test_load_data():
+    df = Ds.load_data('20241211-20241213', 'polygon_test')
+
+
+def test_ds_p():
+    df = Ds.load_data('20241211-20241213', 'polygon_test')
+    chart = df.p(left_axis=[0], right_axis=[1])
+    assert chart is not None
+
+
+def test_ds_types():
+    data_path = Path(__file__).resolve().parent.parent / "data" / "UBER_20241211_minute.parquet"
+    source = pl.read_parquet(data_path)
+    df = Ds(source).i('polygon')

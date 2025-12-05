@@ -1,10 +1,16 @@
+from __future__ import annotations
+from tqdm import tqdm
+from pathlib import Path
 from datetime import datetime
-from typing import Literal, Optional, cast
+from typing import Optional, TypedDict, cast
+import numpy as np
 import polars as pl
 import shutil
 import altair as alt
+import yaml
 
-from .util import parse_time_to_ns
+from .time_util import parse_time_to_ns, parse_dates
+
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 alt.renderers.enable("browser")
@@ -14,11 +20,67 @@ def get_terminal_size():
     return shutil.get_terminal_size().columns - 5
 
 
+
+class DsType(TypedDict):
+    cols: dict[str, list[str]]
+    sym: str
+    time: str
+    data: dict[str, str]
+
+def _get_ds_type_dict(ds_type: str) -> DsType:
+    """
+    Load yaml file from cyc/files/ds_types.yaml. Return the entry with ds_type
+    """
+    ds_types_path = Path(__file__).resolve().parent / "files" / "ds_types.yaml"
+    with ds_types_path.open("r", encoding="utf-8") as file:
+        ds_types = yaml.safe_load(file) or {}
+    return ds_types[ds_type]
+
 class Ds(pl.DataFrame):
     """
     Attribute:
         time: pl.Datetime("ns")
     """
+
+    _ds_type: str
+
+    def i(self, ds_type: str) -> "Ds":
+        ds_type_dict = _get_ds_type_dict(ds_type)
+        ds = Ds(self.with_columns(
+            [
+                pl.col(ds_type_dict["sym"]).alias("sym"),
+                pl.col(ds_type_dict["time"]).alias("time"),
+            ]
+        ))
+        ds._ds_type = ds_type
+        return ds
+
+    @classmethod
+    def load_data(cls, date_str: str, ds_type: str):
+        data_path = _get_ds_type_dict(ds_type)['data']['path']
+        date_list = parse_dates(date_str)
+        data_root = (Path(data_path) / ds_type).expanduser()
+        if not data_root.exists():
+            raise FileNotFoundError(f"Data path '{data_root}' does not exist")
+
+        if not date_list:
+            raise ValueError(f"No trading days found in range '{date_str}'")
+
+        frames: list[pl.DataFrame] = []
+        missing_dates: list[str] = []
+
+        for date in tqdm(date_list):
+            file_path = data_root / f"{date}.parquet"
+            if not file_path.exists():
+                missing_dates.append(date)
+                continue
+            frames.append(pl.read_parquet(file_path))
+
+        if missing_dates:
+            print("missing_dates:" + ", ".join(missing_dates))
+
+        combined = pl.concat(frames, how="vertical_relaxed", rechunk=True)
+        return cls(combined).i(ds_type)
 
     @property
     def _T(self):
@@ -48,10 +110,12 @@ class Ds(pl.DataFrame):
 
     def s(
         self,
-        sym: Optional[str],
-        time_start: Optional[str],
-        time_end: Optional[str],
-        col_names: list[str],
+        sym: Optional[str] = None,
+        time_start: Optional[str] = None,
+        time_end: Optional[str] = None,
+        col_groups: Optional[list[str]] = None,
+        col_names: Optional[list[str]] = None,
+        f: Optional[np.ndarray] = None,
         date: Optional[str] = None,
     ) -> "Ds":
         """
@@ -74,12 +138,21 @@ class Ds(pl.DataFrame):
         """
         col_list = ["sym", "time"]
         col_list_cumsum = []
-        for col_name in col_names:
+
+        ds_type_dict = _get_ds_type_dict(self._ds_type)
+        names = []
+        for col_group in col_groups or []:
+            names += ds_type_dict['cols'][col_group]
+        names += col_names or []
+        names = names or self.columns
+        
+        for col_name in names:
             name, *op = col_name.split(":")
-            col_list.append(name)
-            if len(op) == 0:
-                continue
-            col_list_cumsum.append(name)
+            if not name in col_list:
+                col_list.append(name)
+                if len(op) == 0:
+                    continue
+                col_list_cumsum.append(name)
 
         filters = []
         if sym is not None:
@@ -107,9 +180,10 @@ class Ds(pl.DataFrame):
             for condition in filters[1:]:
                 combined = combined & condition
             df = df.filter(combined)
+        if f is not None:
+            df = df.filter(f)
         df = df.with_columns([pl.col(name).cum_sum() for name in col_list_cumsum])
-
-        return self.__class__(df)
+        return self.__class__(df).i(self._ds_type)
 
     def p(
         self,
@@ -178,3 +252,4 @@ class Ds(pl.DataFrame):
         if name in self.columns:
             return self[name]
         return getattr(super(), name)
+
