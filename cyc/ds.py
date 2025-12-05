@@ -20,12 +20,12 @@ def get_terminal_size():
     return shutil.get_terminal_size().columns - 5
 
 
-
 class DsType(TypedDict):
     cols: dict[str, list[str]]
     sym: str
     time: str
     data: dict[str, str]
+
 
 def _get_ds_type_dict(ds_type: str) -> DsType:
     """
@@ -35,6 +35,7 @@ def _get_ds_type_dict(ds_type: str) -> DsType:
     with ds_types_path.open("r", encoding="utf-8") as file:
         ds_types = yaml.safe_load(file) or {}
     return ds_types[ds_type]
+
 
 class Ds(pl.DataFrame):
     """
@@ -46,18 +47,20 @@ class Ds(pl.DataFrame):
 
     def i(self, ds_type: str) -> "Ds":
         ds_type_dict = _get_ds_type_dict(ds_type)
-        ds = Ds(self.with_columns(
-            [
-                pl.col(ds_type_dict["sym"]).alias("sym"),
-                pl.col(ds_type_dict["time"]).alias("time"),
-            ]
-        ))
+        ds = Ds(
+            self.with_columns(
+                [
+                    pl.col(ds_type_dict["sym"]).alias("sym"),
+                    pl.col(ds_type_dict["time"]).cast(pl.Datetime("ns")).alias("time"),
+                ]
+            )
+        )
         ds._ds_type = ds_type
         return ds
 
     @classmethod
     def load_data(cls, date_str: str, ds_type: str):
-        data_path = _get_ds_type_dict(ds_type)['data']['path']
+        data_path = _get_ds_type_dict(ds_type)["data"]["path"]
         date_list = parse_dates(date_str)
         data_root = (Path(data_path) / ds_type).expanduser()
         if not data_root.exists():
@@ -142,10 +145,10 @@ class Ds(pl.DataFrame):
         ds_type_dict = _get_ds_type_dict(self._ds_type)
         names = []
         for col_group in col_groups or []:
-            names += ds_type_dict['cols'][col_group]
+            names += ds_type_dict["cols"][col_group]
         names += col_names or []
         names = names or self.columns
-        
+
         for col_name in names:
             name, *op = col_name.split(":")
             if not name in col_list:
@@ -252,4 +255,3 @@ class Ds(pl.DataFrame):
         if name in self.columns:
             return self[name]
         return getattr(super(), name)
-
