@@ -1,15 +1,14 @@
 from __future__ import annotations
-from tqdm import tqdm
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, TypedDict, cast
+from typing import Any, Optional, TypedDict, cast
 import numpy as np
 import polars as pl
 import shutil
 import altair as alt
 import yaml
 
-from .time_util import parse_time_to_ns, parse_dates
+from .time_util import parse_time_to_ns
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 alt.renderers.enable("browser")
@@ -120,96 +119,70 @@ def _plot(
     return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
 
+
 setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "p", _plot)
 
-
-class DsType(TypedDict):
+class DfType(TypedDict):
     cols: dict[str, list[str]]
     sym: str
     time: str
     data: dict[str, str]
 
 
-def _get_ds_type_dict(ds_type: str) -> DsType:
+def get_df_type_dict(df_type: str) -> DfType:
     """
-    Load yaml file from cyc/files/ds_types.yaml. Return the entry with ds_type
+    Load yaml file from cyc/files/df_types.yaml. Return the entry with df_type
     """
-    ds_types_path = Path(__file__).resolve().parent / "files" / "ds_types.yaml"
-    with ds_types_path.open("r", encoding="utf-8") as file:
-        ds_types = yaml.safe_load(file) or {}
-    return ds_types[ds_type]
+    df_types_path = Path(__file__).resolve().parent / "files" / "df_types.yaml"
+    with df_types_path.open("r", encoding="utf-8") as file:
+        df_types = yaml.safe_load(file) or {}
+    return df_types[df_type]
 
 
-class Ds(pl.DataFrame):
+class Df:
     """
     Attribute:
         time: pl.Datetime("ns")
     """
 
-    _ds_type: str
+    df: pl.DataFrame
+    df_type: str
 
-    def i(self, ds_type: str) -> "Ds":
-        ds_type_dict = _get_ds_type_dict(ds_type)
-        expr = []
-        if not "sym" in self.columns:
-            expr.append(pl.col(ds_type_dict["sym"]).alias("sym"))
-        if not "time" in self.columns:
-            expr.append(
-                pl.col(ds_type_dict["time"]).cast(pl.Datetime("ns")).alias("time")
-            )
-        ds = Ds(self.with_columns(expr))
-        ds._ds_type = ds_type
-        return ds
+    def __init__(self, df: pl.DataFrame, df_type = "default") -> None:
+        self.df = df
+        self.i(df_type)
 
-    @classmethod
-    def load_data_single(cls, ds_type: str):
-        data_path = _get_ds_type_dict(ds_type)["data"]["path"]
-        return cls(pl.read_parquet(Path(data_path) / f"{ds_type}.parquet")).i(ds_type)
-
-    @classmethod
-    def load_data(cls, date_str: str, ds_type: str):
-        data_path = _get_ds_type_dict(ds_type)["data"]["path"]
-        date_list = parse_dates(date_str)
-        data_root = (Path(data_path) / ds_type).expanduser()
-        if not data_root.exists():
-            raise FileNotFoundError(f"Data path '{data_root}' does not exist")
-
-        if not date_list:
-            raise ValueError(f"No trading days found in range '{date_str}'")
-
-        frames: list[pl.DataFrame] = []
-        missing_dates: list[str] = []
-
-        for date in tqdm(date_list):
-            file_path = data_root / f"{date}.parquet"
-            if not file_path.exists():
-                missing_dates.append(date)
-                continue
-            frames.append(pl.read_parquet(file_path))
-
-        if missing_dates:
-            print("missing_dates:" + ", ".join(missing_dates))
-
-        combined = pl.concat(frames, how="vertical_relaxed", rechunk=True)
-        return cls(combined).i(ds_type)
+    def i(self, df_type: str, enrich: bool = False) -> "Df":
+        self.df_type = df_type
+        if enrich:
+            df_type_dict = get_df_type_dict(df_type)
+            expr = []
+            if not "sym" in self.df.columns:
+                expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
+            if not "time" in self.df.columns:
+                expr.append(
+                    pl.col(df_type_dict["time"]).cast(pl.Datetime("ns")).alias("time")
+                )
+            self.df = self.df.with_columns(expr)
+        return self
 
     def s(
         self,
         sym: Optional[str] = None,
         time_start: Optional[str] = None,
         time_end: Optional[str] = None,
-        o: Optional[list[str]] = None,  # options in ds_types.yaml
+        o: Optional[list[str]] = None,  # options in df_types.yaml
         c: Optional[list[str] | str] = None,  # column names
         r: Optional[str] = None,  # regular expression
         f: Optional[np.ndarray] = None,
         date: Optional[str] = None,
-    ) -> "Ds":
+    ) -> "Df":
         """
         Filter the columns to sym + time + col_names, then
 
-        Filter Ds by
+        Filter Df by
         1. self.sym == sym is sym is not None
         2. self.time is greater than time_start if time_start is not None
         3. self.time is less than time_end if time_end is not None
@@ -224,17 +197,18 @@ class Ds(pl.DataFrame):
             time_end: "9:40" or "9:40:03.5"
             date: "20250102"
         """
+        df = self.df
         col_list = ["sym", "time"]
         col_list_cumsum = []
 
-        ds_type_dict = _get_ds_type_dict(self._ds_type)
+        df_type_dict = get_df_type_dict(self.df_type)
         names = []
         for col_group in o or []:
-            names += ds_type_dict["cols"][col_group]
+            names += df_type_dict["cols"][col_group]
         c = [c] if isinstance(c, str) else c
         names += c or []
         if not (o or c or r):
-            names = self.columns
+            names = df.columns
 
         for col_name in names:
             name, *op = col_name.split(":")
@@ -244,7 +218,7 @@ class Ds(pl.DataFrame):
                     continue
                 col_list_cumsum.append(name)
 
-        df = self.select(
+        df = df.select(
             pl.selectors.by_name(col_list),
             pl.selectors.matches(r or "$^").exclude(col_list),
         )
@@ -267,8 +241,17 @@ class Ds(pl.DataFrame):
             )
 
         if date is not None:
-            date_value = datetime.strptime(date, "%Y%m%d").date()
-            filters.append(pl.col("time").dt.date() == date_value)
+            if "-" in date:
+                start_str, end_str = date.split("-", 1)
+                start_date = datetime.strptime(start_str.strip(), "%Y%m%d").date()
+                end_date = datetime.strptime(end_str.strip(), "%Y%m%d").date()
+                filters.append(
+                    (pl.col("time").dt.date() >= start_date)
+                    & (pl.col("time").dt.date() <= end_date)
+                )
+            else:
+                date_value = datetime.strptime(date, "%Y%m%d").date()
+                filters.append(pl.col("time").dt.date() == date_value)
 
         if filters:
             combined = filters[0]
@@ -277,9 +260,32 @@ class Ds(pl.DataFrame):
             df = df.filter(combined)
         if f is not None:
             df = df.filter(f)
-        return self.__class__(df).i(self._ds_type)
+        self.df = df
+        return self
+
 
     def __getattr__(self, name: str):
-        if name in self.columns:
-            return self[name]
-        return getattr(super(), name)
+        # if name in self.df.columns:
+            # return self.df[name]
+        attr = getattr(self.df, name)
+        # if attr is a function that returns pl.DataFrame
+        # return a wrapper around the function that returns Df on the DataFrame
+        if callable(attr):
+            def wrapper(*args, **kwargs):
+                result = attr(*args, **kwargs)
+                if isinstance(result, pl.DataFrame):
+                    self.df = result
+                    return self
+                return result
+            return wrapper
+        return attr
+
+    def __getitem__(self, item):
+        result = self.df[item]
+        if isinstance(result, pl.DataFrame):
+            return Df(result).i(self.df_type)
+        return result
+
+    def __dir__(self):
+        return dir(self.df)
+
