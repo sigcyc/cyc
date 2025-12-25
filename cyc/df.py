@@ -152,20 +152,18 @@ class Df:
 
     def __init__(self, df: pl.DataFrame, df_type = "default") -> None:
         self.df = df
-        self.i(df_type)
-
-    def i(self, df_type: str, enrich: bool = False) -> "Df":
         self.df_type = df_type
-        if enrich:
-            df_type_dict = get_df_type_dict(df_type)
-            expr = []
-            if not "sym" in self.df.columns:
-                expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
-            if not "time" in self.df.columns:
-                expr.append(
-                    pl.col(df_type_dict["time"]).cast(pl.Datetime("ns")).alias("time")
-                )
-            self.df = self.df.with_columns(expr)
+
+    def enrich(self) -> "Df":
+        df_type_dict = get_df_type_dict(self.df_type)
+        expr = []
+        if not "sym" in self.df.columns:
+            expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
+        if not "time" in self.df.columns:
+            expr.append(
+                pl.col(df_type_dict["time"]).cast(pl.Datetime("ns")).alias("time")
+            )
+        self.df = self.df.with_columns(expr)
         return self
 
     def s(
@@ -265,9 +263,7 @@ class Df:
 
 
     def __getattr__(self, name: str):
-        # if name in self.df.columns:
-            # return self.df[name]
-        attr = getattr(self.df, name)
+        attr = getattr(self.df, name)        
         # if attr is a function that returns pl.DataFrame
         # return a wrapper around the function that returns Df on the DataFrame
         if callable(attr):
@@ -283,9 +279,12 @@ class Df:
     def __getitem__(self, item):
         result = self.df[item]
         if isinstance(result, pl.DataFrame):
-            return Df(result).i(self.df_type)
+            return Df(result, self.df_type)
         return result
 
     def __dir__(self):
         return dir(self.df)
+
+    def __repr__(self):
+        return repr(self.df)
 

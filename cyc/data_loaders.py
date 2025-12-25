@@ -8,9 +8,7 @@ from .time_util import parse_dates
 
 def load_data_single(df_type: str) -> Df:
     data_path = get_df_type_dict(df_type)["data"]["path"]
-    return Df(pl.read_parquet(Path(data_path) / f"{df_type}.parquet")).i(
-        df_type, enrich=True
-    )
+    return Df(pl.read_parquet(Path(data_path) / f"{df_type}.parquet"), df_type).enrich()
 
 
 def load_data(date_str: str, df_type: str) -> Df:
@@ -40,4 +38,4 @@ def load_data(date_str: str, df_type: str) -> Df:
         print("missing_dates:" + ", ".join(missing_dates))
 
     combined = pl.concat(frames, how="vertical_relaxed", rechunk=True)
-    return Df(combined).i(df_type, enrich=True)
+    return Df(combined, df_type).enrich()
