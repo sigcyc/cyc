@@ -258,8 +258,7 @@ class Df:
             df = df.filter(combined)
         if f is not None:
             df = df.filter(f)
-        self.df = df
-        return self
+        return Df(df, self.df_type)
 
 
     def __getattr__(self, name: str):

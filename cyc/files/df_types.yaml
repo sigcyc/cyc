@@ -1,6 +1,6 @@
 futures_report:
   cols:
-    core: [sym, time]
+    core: [sym, time, Dealer_Positions_Long_All]
   sym: Market_and_Exchange_Names
   time: date
   data:
