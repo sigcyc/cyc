@@ -14,8 +14,7 @@ polygon_test:
   data:
     path: /Users/yichenchen/workspace/cyc/data
 
-
-ref_stock_data:
+stock_data_day:
   cols:
     core: [sym, close]
   data:

@@ -52,8 +52,8 @@ def _print_all(
 
 def _plot(
     self,
-    left_axis: list[int],
-    right_axis: Optional[list[int]] = None,
+    left_axis: list[int | str],
+    right_axis: Optional[list[int | str]] = None,
     width=600,
     time_format=alt.Undefined,
 ) -> alt.LayerChart:
@@ -64,14 +64,22 @@ def _plot(
     3. Plot the columns in right-axis on the right y-axis
 
     Args:
-        left_axis: list of column index to plot on the left y-axis
-        right_axis: list of column index to plot on the right y-axis
+        left_axis: list of column index or name to plot on the left y-axis
+        right_axis: list of column index or name to plot on the right y-axis
     """
     right_axis = right_axis or []
     left_cols = [
-        self.columns[i + 2] for i in left_axis
-    ]  # +2 because the first two columns are sym, time
-    right_cols = [self.columns[i + 2] for i in right_axis]
+        self.columns[i] if isinstance(i, int) else i for i in left_axis
+    ]
+    right_cols = [
+        self.columns[i] if isinstance(i, int) else i for i in right_axis
+    ]
+
+    if time_format is alt.Undefined:
+        min_time = self["time"].min()
+        max_time = self["time"].max()
+        if (min_time.year, min_time.month) != (max_time.year, max_time.month):
+            time_format = "%Y%m%d"
 
     base = (
         alt.Chart(self)
