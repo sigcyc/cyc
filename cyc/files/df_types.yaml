@@ -21,3 +21,4 @@ ref_stock_data:
   data:
     path: /Users/yichenchen/workspace/data
   time: date
+  sym: ticker

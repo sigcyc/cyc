@@ -41,7 +41,6 @@ def test_df_p():
     chart = df.p(left_axis=[0], right_axis=[1])
     assert chart is not None
 
-
 class TestDfGetattr:
     def test_column_access_priority_over_parent_attr(self):
         """Column access takes priority when column name matches a parent attribute."""
