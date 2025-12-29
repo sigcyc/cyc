@@ -66,7 +66,7 @@ def fetch_minute_prices(symbol: str, date_str: str, api_key: str) -> pl.DataFram
         .alias("time"),
         pl.col("c").cast(pl.Float32).alias("price"),
         pl.col("v").cast(pl.Float32).alias("dollar_delta"),
-        pl.col("vw").cast(pl.Float32).alias("price_vwap")
+        pl.col("vw").cast(pl.Float32).alias("price_vwap"),
     )
     return dataset
 

@@ -3,9 +3,12 @@ from __future__ import annotations
 from datetime import date as _date, datetime, timedelta
 from functools import lru_cache
 
+import polars as pl
+
+
 def parse_time_to_ns(raw: str) -> int:
     """
-        raw: 9:30 or 9:30:12.5
+    raw: 9:30 or 9:30:12.5
     """
     raw = raw.strip()
     if not raw:
@@ -37,6 +40,7 @@ def parse_time_to_ns(raw: str) -> int:
     nanosecond = int(frac_str[:9].ljust(9, "0")) if frac_str else 0
     total_seconds = hour * 3600 + minute * 60 + second
     return total_seconds * 1_000_000_000 + nanosecond
+
 
 def parse_dates(date: str) -> list[str]:
     """
@@ -72,6 +76,30 @@ def parse_dates(date: str) -> list[str]:
         current += timedelta(days=1)
 
     return trading_days
+
+
+def previous_trading_day(date: pl.Series) -> pl.Series:
+    """Given date, calculate the previous trading day."""
+
+    def _prev(d: _date) -> _date:
+        d -= timedelta(days=1)
+        while not _is_trading_day(d):
+            d -= timedelta(days=1)
+        return d
+
+    return date.map_elements(_prev, return_dtype=pl.Date)
+
+
+def next_trading_day(date: pl.Series) -> pl.Series:
+    """Given date, calculate the next trading day."""
+
+    def _next(d: _date) -> _date:
+        d += timedelta(days=1)
+        while not _is_trading_day(d):
+            d += timedelta(days=1)
+        return d
+
+    return date.map_elements(_next, return_dtype=pl.Date)
 
 
 def _is_trading_day(day: _date) -> bool:
@@ -150,4 +178,3 @@ def _calculate_easter(year: int) -> _date:
     month = (h + l - 7 * m + 114) // 31
     day = ((h + l - 7 * m + 114) % 31) + 1
     return _date(year, month, day)
-

@@ -40,8 +40,6 @@ def test_parse_time_to_ns_invalid_inputs(raw):
         parse_time_to_ns(raw)
 
 
-
-
 def test_parse_date_skips_weekends():
     assert parse_dates("20241211-20241216") == [
         "20241211",

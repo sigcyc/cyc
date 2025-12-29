@@ -68,12 +68,8 @@ def _plot(
         right_axis: list of column index or name to plot on the right y-axis
     """
     right_axis = right_axis or []
-    left_cols = [
-        self.columns[i] if isinstance(i, int) else i for i in left_axis
-    ]
-    right_cols = [
-        self.columns[i] if isinstance(i, int) else i for i in right_axis
-    ]
+    left_cols = [self.columns[i] if isinstance(i, int) else i for i in left_axis]
+    right_cols = [self.columns[i] if isinstance(i, int) else i for i in right_axis]
 
     if time_format is alt.Undefined:
         min_time = self["time"].min()
@@ -127,10 +123,10 @@ def _plot(
     return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
 
-
 setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "p", _plot)
+
 
 class DfType(TypedDict):
     cols: dict[str, list[str]]
@@ -158,7 +154,7 @@ class Df:
     df: pl.DataFrame
     df_type: str
 
-    def __init__(self, df: pl.DataFrame, df_type = "default") -> None:
+    def __init__(self, df: pl.DataFrame, df_type="default") -> None:
         self.df = df
         self.df_type = df_type
 
@@ -268,18 +264,19 @@ class Df:
             df = df.filter(f)
         return Df(df, self.df_type)
 
-
     def __getattr__(self, name: str):
-        attr = getattr(self.df, name)        
+        attr = getattr(self.df, name)
         # if attr is a function that returns pl.DataFrame
         # return a wrapper around the function that returns Df on the DataFrame
         if callable(attr):
+
             def wrapper(*args, **kwargs):
                 result = attr(*args, **kwargs)
                 if isinstance(result, pl.DataFrame):
                     self.df = result
                     return self
                 return result
+
             return wrapper
         return attr
 
@@ -294,4 +291,3 @@ class Df:
 
     def __repr__(self):
         return repr(self.df)
-

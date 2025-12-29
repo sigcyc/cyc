@@ -1,4 +1,3 @@
-
 import numpy as np
 import polars as pl
 
@@ -17,7 +16,7 @@ def test__T_returns_full_column_representation():
 
 
 def test_df_s():
-    df = load_data('20241211', 'polygon_test')
+    df = load_data("20241211", "polygon_test")
     filtered = df.s(
         sym="UBER",
         time_start="09:05",
@@ -32,14 +31,16 @@ def test_df_s():
     assert filtered.columns == ["sym", "time", "price"]
     assert filtered.shape == (3, 3)
 
+
 def test_load_data():
-    df = load_data('20241211-20241213', 'polygon_test')
+    df = load_data("20241211-20241213", "polygon_test")
 
 
 def test_df_p():
-    df = load_data('20241211-20241213', 'polygon_test')
+    df = load_data("20241211-20241213", "polygon_test")
     chart = df.p(left_axis=[0], right_axis=[1])
     assert chart is not None
+
 
 class TestDfGetattr:
     def test_column_access_priority_over_parent_attr(self):
