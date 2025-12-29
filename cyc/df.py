@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
-from typing import Any, Optional, TypedDict, cast
+from typing import Any, Optional, TypedDict, cast, overload
 import numpy as np
 import polars as pl
 import shutil
@@ -280,7 +280,13 @@ class Df:
             return wrapper
         return attr
 
-    def __getitem__(self, item):
+    @overload
+    def __getitem__(self, item: str) -> pl.Series: ...
+
+    @overload
+    def __getitem__(self, item: list[str]) -> Df: ...
+
+    def __getitem__(self, item: str | list[str]) -> pl.Series | Df:
         result = self.df[item]
         if isinstance(result, pl.DataFrame):
             return Df(result, self.df_type)
