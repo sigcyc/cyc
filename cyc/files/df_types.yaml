@@ -14,6 +14,8 @@ polygon_test:
   data:
     path: /Users/yichenchen/workspace/cyc/data
 
+# dividend is on ex_dividend_date
+# split 4 means yesterday price is 4x today's price
 stock_data_day:
   cols:
     core: [sym, close]

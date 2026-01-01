@@ -10,7 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "polars>=0.20",
     "altair>=5.0",
-    "pyyaml"
+    "pyyaml",
+    "exchange_calendars>=4.0",
 ]
 
 [project.optional-dependencies]

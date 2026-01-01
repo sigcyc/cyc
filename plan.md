@@ -1,4 +1,3 @@
-# Plan
+# calculate trading day
 
-
-My use case is that I want to add a ds_type to a polars dataframe object. As a result, I can do operations on dataframe based on ds_type. The main problem is that after I run function like df.select, I want to keep this ds_type. Everyone is trying to convince me not to inherit pl.DataFrame, and I'm ok with that. But my LSP no longer pop the pl.DataFrame functions, make sure deal with that. A reference verision is under cyc/ds.py. Implement the code in ds2.py
+The current implementation in cyc/time_util _us_market_holidays has all different bugs. e.g. New Year is wrong. Juneteenth is added only in recent days. You are making high stake code so you need to exact. Please start from scratch. You can also search website e.g. polygon to see if there is a simple way to just download ref data. 
