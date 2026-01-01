@@ -178,7 +178,7 @@ class Df:
         o: Optional[list[str]] = None,  # options in df_types.yaml
         c: Optional[list[str] | str] = None,  # column names
         r: Optional[str] = None,  # regular expression
-        f: Optional[np.ndarray] = None,
+        f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
     ) -> "Df":
         """
@@ -254,14 +254,8 @@ class Df:
             else:
                 date_value = datetime.strptime(date, "%Y%m%d").date()
                 filters.append(pl.col("time").dt.date() == date_value)
-
-        if filters:
-            combined = filters[0]
-            for condition in filters[1:]:
-                combined = combined & condition
-            df = df.filter(combined)
-        if f is not None:
-            df = df.filter(f)
+ 
+        df = df.filter(f, *filters)
         return Df(df, self.df_type)
 
     def __getattr__(self, name: str):
