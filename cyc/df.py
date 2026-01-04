@@ -1,4 +1,5 @@
 from __future__ import annotations
+import functools
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Optional, TypedDict, TYPE_CHECKING, cast
@@ -266,6 +267,7 @@ class Df(_DfBase):
         # if attr is a function that returns pl.DataFrame
         # return a wrapper around the function that returns Df on the DataFrame
         if callable(attr):
+            @functools.wraps(attr)
             def wrapper(*args, **kwargs):
                 result = attr(*args, **kwargs)
                 if isinstance(result, pl.DataFrame):
@@ -282,7 +284,8 @@ class Df(_DfBase):
         return result
 
     def __dir__(self):
-        return dir(self.df)
+        # Enables Tab-completion in IPython/Jupyter for Polars methods
+        return set(dir(super()) + dir(self._df))
 
     def __repr__(self):
         return repr(self.df)
