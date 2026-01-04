@@ -5,6 +5,8 @@ from typing import overload
 
 import polars as pl
 
+from cyc.time_util import next_trading_day, previous_trading_day
+
 from .data_loaders import load_data
 
 
@@ -52,3 +54,20 @@ def get_stock(
     if isinstance(fields, str):
         return result[fields]
     return result.select(field_list)
+
+
+def get_spot(
+    sym: pl.Series | str, date: pl.Series, num_days: int, field="close"
+) -> pl.Series:
+    if num_days == 0:
+        return get_stock(sym, date, field)
+    elif num_days > 0:
+        next_day = next_trading_day(date)
+        dividend, split = get_stock(sym, next_day, ["dividend", "split"])
+        spot = get_spot(sym, next_day, num_days - 1, field)
+        return spot * split.fill_null(1) + dividend.fill_null(0)
+    else:
+        prev_day = previous_trading_day(date)
+        dividend, split = get_stock(sym, date, ["dividend", "split"])
+        spot = get_spot(sym, prev_day, num_days + 1, field)
+        return spot / split.fill_null(1) - dividend.fill_null(0)
