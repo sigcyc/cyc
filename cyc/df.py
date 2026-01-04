@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
-from typing import Any, Optional, TypedDict, cast, overload
+from typing import Any, Optional, TypedDict, TYPE_CHECKING, cast
 import numpy as np
 import polars as pl
 import shutil
@@ -145,7 +145,10 @@ def get_df_type_dict(df_type: str) -> DfType:
     return df_types[df_type]
 
 
-class Df:
+_DfBase = pl.DataFrame if TYPE_CHECKING else object
+
+
+class Df(_DfBase):
     """
     Attribute:
         time: pl.Datetime("ns")
@@ -263,24 +266,16 @@ class Df:
         # if attr is a function that returns pl.DataFrame
         # return a wrapper around the function that returns Df on the DataFrame
         if callable(attr):
-
             def wrapper(*args, **kwargs):
                 result = attr(*args, **kwargs)
                 if isinstance(result, pl.DataFrame):
                     self.df = result
                     return self
                 return result
-
             return wrapper
         return attr
 
-    @overload
-    def __getitem__(self, item: str) -> pl.Series: ...
-
-    @overload
-    def __getitem__(self, item: list[str]) -> Df: ...
-
-    def __getitem__(self, item: str | list[str]) -> pl.Series | Df:
+    def __getitem__(self, item):  # type: ignore[override]
         result = self.df[item]
         if isinstance(result, pl.DataFrame):
             return Df(result, self.df_type)
