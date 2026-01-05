@@ -1,73 +1,70 @@
-# It contains the common utils used in studies
-
-from datetime import datetime
-from typing import overload
+from __future__ import annotations
 
 import polars as pl
 
+from cyc.data_loaders import load_data
 from cyc.time_util import next_trading_day, previous_trading_day
 
-from .data_loaders import load_data
 
-
-@overload
-def get_stock(
-    sym: pl.Series | str, date: pl.Series | str, fields: list[str]
-) -> pl.DataFrame: ...
-@overload
-def get_stock(
-    sym: pl.Series | str, date: pl.Series | str, fields: str
-) -> pl.Series: ...
-def get_stock(
-    sym: pl.Series | str, date: pl.Series | str, fields: list[str] | str
-) -> pl.DataFrame | pl.Series:
+def get_stock(self: pl.DataFrame, fields: str | list[str]) -> pl.DataFrame:
     """
-    Get the stock_data_day for sym date.
+    Join stock_data_day fields onto self by (sym, date).
 
-    1. Load stock_data_day for the unique days in date
-    2. Merge stock_data_day on sym and date
-    3. If fields is list, return a dataframe, else return pl.Series
-    4. The output is sym, date aligned
+    Args:
+        fields: column name or list of column names to fetch
 
-    If sym is str, it broadcasts to the size of date.
-    If date is str (YYYYMMDD), it broadcasts to the size of sym.
+    Returns:
+        DataFrame with sym, date, and requested fields
     """
-    if isinstance(sym, str) and isinstance(date, str):
-        raise ValueError("sym and date cannot both be str")
-
-    if isinstance(sym, str):
-        sym = pl.Series("sym", [sym] * len(date))
-    if isinstance(date, str):
-        date_val = datetime.strptime(date, "%Y%m%d").date()
-        date = pl.Series("date", [date_val] * len(sym))
-
-    unique_dates = date.unique()
-    stock_data = load_data(unique_dates, "stock_data_day").df
-
+    stock_data = load_data(self["date"].unique(), "stock_data_day").df
     field_list = [fields] if isinstance(fields, str) else fields
-    select_cols = ["sym", "date"] + field_list
-    stock_data = stock_data.select(select_cols)
+    stock_data = stock_data.select("sym", "date", *field_list)
 
-    input_df = pl.DataFrame({"sym": sym, "date": date})
-    result = input_df.join(stock_data, on=["sym", "date"], how="left")
-
-    if isinstance(fields, str):
-        return result[fields]
-    return result.select(field_list)
+    return self.join(stock_data, on=["sym", "date"], how="left")
 
 
-def get_spot(
-    sym: pl.Series | str, date: pl.Series, num_days: int, field="close"
+def get_spot(self: pl.DataFrame, num_days: int, field: str = "close") -> pl.DataFrame:
+    """
+    Get spot price adjusted for dividends and splits.
+
+    Args:
+        num_days: 0 for current, positive for forward, negative for backward
+        field: price field to adjust (default: close)
+
+    Returns:
+        DataFrame with sym, date, and adjusted field
+    """
+    sym, date = self["sym"], self["date"]
+    result = _get_spot(sym, date, num_days, field)
+    name = f"spot_d{num_days}" if num_days >= 0 else f"spot_dm{-num_days}"
+    return self.with_columns(result.alias(name))
+
+
+def _get_spot(
+    sym: pl.Series, date: pl.Series, num_days: int, field: str
 ) -> pl.Series:
+    """Recursively compute adjusted spot price."""
+    df = pl.DataFrame({"sym": sym, "date": date})
+
     if num_days == 0:
-        return get_stock(sym, date, field)
-    elif num_days > 0:
+        return get_stock(df, field)[field]
+
+    if num_days > 0:
         next_day = next_trading_day(date)
-        dividend, split = get_stock(sym, next_day, ["dividend", "split"])
-        spot = get_spot(sym, next_day, num_days - 1, field)
-        return spot * split.fill_null(1) + dividend.fill_null(0)
-    else:
-        prev_day = previous_trading_day(date)
-        dividend, split = get_stock(sym, date, ["dividend", "split"])
-        spot = get_spot(sym, prev_day, num_days + 1, field)
-        return spot / split.fill_null(1) - dividend.fill_null(0)
+        spot = _get_spot(sym, next_day, num_days - 1, field)
+        next_df = pl.DataFrame({"sym": sym, "date": next_day})
+        adj = get_stock(next_df, ["dividend", "split"])
+        dividend = adj["dividend"].fill_null(0)
+        split = adj["split"].fill_null(1)
+        return spot * split + dividend
+
+    prev_day = previous_trading_day(date)
+    spot = _get_spot(sym, prev_day, num_days + 1, field)
+    adj = get_stock(df, ["dividend", "split"])
+    dividend = adj["dividend"].fill_null(0)
+    split = adj["split"].fill_null(1)
+    return (spot - dividend) / split
+
+
+pl.DataFrame.get_stock = get_stock  # type: ignore[attr-defined]
+pl.DataFrame.get_spot = get_spot  # type: ignore[attr-defined]
