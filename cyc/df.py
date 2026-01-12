@@ -8,8 +8,8 @@ import polars as pl
 import shutil
 import altair as alt
 import yaml
-from .study import get_stock as study_get_stock
-from .study import get_spot as study_get_spot
+from .study import add_stock as study_add_stock
+from .study import add_spot as study_add_spot
 
 from .data_loaders import load_data, load_data_single
 from .time_util import parse_time_to_ns, parse_dates
@@ -198,8 +198,8 @@ class Df(_DfBase):
         self.df = self.df.with_columns(expr)
         return self
 
-    get_stock = wrap_df_func(study_get_stock)
-    get_spot = wrap_df_func(study_get_spot)
+    add_stock = wrap_df_func(study_add_stock)
+    add_spot = wrap_df_func(study_add_spot)
 
     def s(
         self,
