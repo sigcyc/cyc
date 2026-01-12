@@ -2,14 +2,17 @@ from __future__ import annotations
 import functools
 from pathlib import Path
 from datetime import datetime
-from typing import Any, Optional, TypedDict, TYPE_CHECKING, cast
+from typing import Any, Optional, TypedDict, TYPE_CHECKING, cast, Callable, Concatenate, ParamSpec
 import numpy as np
 import polars as pl
 import shutil
 import altair as alt
 import yaml
+from .study import get_stock as study_get_stock
+from .study import get_spot as study_get_spot
 
-from .time_util import parse_time_to_ns
+from .data_loaders import load_data, load_data_single
+from .time_util import parse_time_to_ns, parse_dates
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 alt.renderers.enable("browser")
@@ -148,6 +151,18 @@ def get_df_type_dict(df_type: str) -> DfType:
 
 _DfBase = pl.DataFrame if TYPE_CHECKING else object
 
+P = ParamSpec("P")
+
+
+def wrap_df_func(
+    func: Callable[Concatenate[pl.DataFrame, P], pl.DataFrame],
+) -> Callable[Concatenate[Df, P], Df]:
+    @functools.wraps(func)
+    def wrapper(df: Df, *args: P.args, **kwargs: P.kwargs) -> Df:
+        result = func(df.df, *args, **kwargs)
+        return Df(result, df.df_type)
+
+    return wrapper
 
 class Df(_DfBase):
     """
@@ -162,6 +177,15 @@ class Df(_DfBase):
         self.df = df
         self.df_type = df_type
 
+    @classmethod
+    def load_data_single(cls, df_type: str) -> Df:
+        return Df(load_data_single(df_type), df_type).enrich()
+
+
+    @classmethod
+    def load_data(cls, date_str: str | pl.Series, df_type: str) -> Df:
+        return Df(load_data(date_str, df_type), df_type).enrich()
+
     def enrich(self) -> "Df":
         df_type_dict = get_df_type_dict(self.df_type)
         expr = []
@@ -173,6 +197,9 @@ class Df(_DfBase):
             )
         self.df = self.df.with_columns(expr)
         return self
+
+    get_stock = wrap_df_func(study_get_stock)
+    get_spot = wrap_df_func(study_get_spot)
 
     def s(
         self,
@@ -261,6 +288,7 @@ class Df(_DfBase):
  
         df = df.filter(f, *filters)
         return Df(df, self.df_type)
+
 
     def __getattr__(self, name: str):
         attr = getattr(self.df, name)

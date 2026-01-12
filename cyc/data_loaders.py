@@ -2,16 +2,16 @@ import polars as pl
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
-from .df import Df, get_df_type_dict
+from .df import get_df_type_dict
 from .time_util import parse_dates
 
 
-def load_data_single(df_type: str) -> Df:
+def load_data_single(df_type: str) -> pl.DataFrame:
     data_path = get_df_type_dict(df_type)["data"]["path"]
-    return Df(pl.read_parquet(Path(data_path) / f"{df_type}.parquet"), df_type).enrich()
+    return pl.read_parquet(Path(data_path) / f"{df_type}.parquet")
 
 
-def load_data(date_str: str | pl.Series, df_type: str) -> Df:
+def load_data(date_str: str | pl.Series, df_type: str) -> pl.DataFrame:
     data_path = get_df_type_dict(df_type)["data"]["path"]
     if isinstance(date_str, pl.Series):
         date_list = [d.strftime("%Y%m%d") for d in date_str.to_list()]
@@ -41,4 +41,4 @@ def load_data(date_str: str | pl.Series, df_type: str) -> Df:
         print("missing_dates:" + ", ".join(missing_dates))
 
     combined = pl.concat(frames, how="vertical_relaxed", rechunk=True)
-    return Df(combined, df_type).enrich()
+    return combined

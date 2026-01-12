@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import polars as pl
 
-from cyc.data_loaders import load_data
-from cyc.time_util import next_trading_day, previous_trading_day
+from .time_util import next_trading_day, previous_trading_day
+from .data_loaders import load_data
 
 
 def get_stock(self: pl.DataFrame, fields: str | list[str]) -> pl.DataFrame:
@@ -16,7 +16,7 @@ def get_stock(self: pl.DataFrame, fields: str | list[str]) -> pl.DataFrame:
     Returns:
         DataFrame with sym, date, and requested fields
     """
-    stock_data = load_data(self["date"].unique(), "stock_data_day").df
+    stock_data = load_data(self["date"].unique(), "stock_data_day")
     field_list = [fields] if isinstance(fields, str) else fields
     stock_data = stock_data.select("sym", "date", *field_list)
 
@@ -66,5 +66,3 @@ def _get_spot(
     return (spot - dividend) / split
 
 
-pl.DataFrame.get_stock = get_stock  # type: ignore[attr-defined]
-pl.DataFrame.get_spot = get_spot  # type: ignore[attr-defined]
