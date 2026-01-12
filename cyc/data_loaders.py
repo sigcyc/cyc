@@ -2,7 +2,7 @@ import polars as pl
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
-from .df import get_df_type_dict
+from .types import get_df_type_dict
 from .time_util import parse_dates
 
 
