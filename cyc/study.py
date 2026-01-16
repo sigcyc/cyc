@@ -6,7 +6,7 @@ from .time_util import next_trading_day, previous_trading_day
 from .data_loaders import load_data
 
 
-def add_stock(self: pl.DataFrame, fields: str | list[str]) -> pl.DataFrame:
+def add_stock(self: pl.DataFrame, fields: str | list[str], sym: str = 'sym') -> pl.DataFrame:
     """
     Join stock_data_day fields onto self by (sym, date).
 
@@ -19,10 +19,9 @@ def add_stock(self: pl.DataFrame, fields: str | list[str]) -> pl.DataFrame:
     stock_data = load_data(self["date"].unique(), "stock_data_day")
     field_list = [fields] if isinstance(fields, str) else fields
     stock_data = stock_data.select(
-        pl.col("ticker").alias("sym"), "date", *field_list
+        pl.col("ticker").alias(sym), "date", *field_list
     )
-
-    return self.join(stock_data, on=["sym", "date"], how="left")
+    return self.join(stock_data, on=[sym, "date"], how="left")
 
 
 def add_spot(self: pl.DataFrame, num_days: int, field: str = "close") -> pl.DataFrame:
