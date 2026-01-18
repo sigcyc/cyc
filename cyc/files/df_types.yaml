@@ -1,3 +1,8 @@
+default:
+  cols: 
+    core: [sym, time]
+  sym: sym
+  time: time
 futures_report:
   cols:
     core: [sym, time, Dealer_Positions_Long_All]

@@ -116,6 +116,13 @@ def _plot(
     return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
 
+def _to_df(df: pl.DataFrame, df_type='default'):
+    from .df import Df
+    return Df(df, df_type)
+
+
+
 setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "p", _plot)
+setattr(pl.DataFrame, "to_df", _to_df)
