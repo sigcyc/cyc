@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import Optional, TypedDict, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 import polars as pl
 import yaml
-from .study import add_stock as study_add_stock
-from .study import add_spot as study_add_spot
+from .study import add_stock, add_spot
+from .data_analysis import accum_ratiop, accum_ratio
 
 from .data_loaders import load_data, load_data_single
-from .time_util import parse_time_to_ns, parse_dates
+from .time_util import parse_time_to_ns
 
 
 
@@ -79,8 +79,10 @@ class Df(_DfBase):
         self.df = self.df.with_columns(expr)
         return self
 
-    add_stock = wrap_df_func(study_add_stock)
-    add_spot = wrap_df_func(study_add_spot)
+    add_stock = wrap_df_func(add_stock)
+    add_spot = wrap_df_func(add_spot)
+    accum_ratio = wrap_df_func(accum_ratio)
+    accum_ratiop = wrap_df_func(accum_ratiop)
 
     def s(
         self,
