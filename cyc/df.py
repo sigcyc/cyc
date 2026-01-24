@@ -51,7 +51,7 @@ class Df(_DfBase):
         time: pl.Datetime("ns")
     """
 
-    df: pl.DataFrame
+    df: pl.DataFrame # unmodifiable except in enrich
     df_type: str
 
     def __init__(self, df: pl.DataFrame, df_type="default") -> None:
@@ -182,8 +182,7 @@ class Df(_DfBase):
             def wrapper(*args, **kwargs):
                 result = attr(*args, **kwargs)
                 if isinstance(result, pl.DataFrame):
-                    self.df = result
-                    return self
+                    return Df(result, self.df_type)
                 return result
             return wrapper
         return attr

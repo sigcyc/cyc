@@ -3,7 +3,9 @@ import shutil
 import polars as pl
 import altair as alt
 
+FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
+pl.Config.set_float_precision(FLOAT_PRECISION)
 alt.renderers.enable("browser")
 
 
@@ -23,7 +25,7 @@ def _print_transpose(df: pl.DataFrame) -> None:
 
 def _print_all(
     df: pl.DataFrame,
-    float_precision: Optional[int] = 4,
+    float_precision: Optional[int] = FLOAT_PRECISION,
     fmt_str_lengths: Optional[int] = 100,
 ) -> None:
     """Print the entire DataFrame content in terminal-width-sized chunks."""
@@ -118,7 +120,7 @@ def _plot(
 
 def _to_df(df: pl.DataFrame, df_type='default'):
     from .df import Df
-    return Df(df, df_type)
+    return Df(df, df_type).enrich()
 
 
 
