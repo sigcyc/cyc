@@ -2,7 +2,7 @@ from typing import Optional, cast
 import shutil
 import polars as pl
 import altair as alt
-from marble import marble
+from .marble import marble
 
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
