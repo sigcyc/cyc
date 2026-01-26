@@ -2,6 +2,7 @@ from typing import Optional, cast
 import shutil
 import polars as pl
 import altair as alt
+from marble import marble
 
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
@@ -128,3 +129,4 @@ setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "to_df", _to_df)
+setattr(pl.DataFrame, "marble", marble)
