@@ -28,3 +28,12 @@ stock_data_day:
     path: /Users/yichenchen/workspace/data
   time: date
   sym: ticker
+
+stock_data_min1:
+  cols:
+    core: [sym, close]
+  data:
+    path: /Volumes/ssd
+  time: window_start
+  sym: ticker
+

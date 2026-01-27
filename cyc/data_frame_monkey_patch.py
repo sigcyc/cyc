@@ -32,6 +32,8 @@ def _print_all(
     """Print the entire DataFrame content in terminal-width-sized chunks."""
     terminal_width = get_terminal_size()
     chunk_size = max(1, terminal_width // 12)
+    if len(df) > 10000:
+        raise ValueError("more than 10k rows")
     with pl.Config(
         tbl_rows=-1,
         tbl_cols=-1,

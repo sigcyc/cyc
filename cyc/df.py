@@ -12,7 +12,6 @@ from .data_loaders import load_data, load_data_single
 from .time_util import parse_time_to_ns
 
 
-
 class DfType(TypedDict):
     cols: dict[str, list[str]]
     sym: str
@@ -45,13 +44,14 @@ def wrap_df_func(
 
     return wrapper
 
+
 class Df(_DfBase):
     """
     Attribute:
         time: pl.Datetime("ns")
     """
 
-    df: pl.DataFrame # unmodifiable except in enrich
+    df: pl.DataFrame  # unmodifiable except in enrich
     df_type: str
 
     def __init__(self, df: pl.DataFrame, df_type="default") -> None:
@@ -61,7 +61,6 @@ class Df(_DfBase):
     @classmethod
     def load_data_single(cls, df_type: str) -> Df:
         return Df(load_data_single(df_type), df_type).enrich()
-
 
     @classmethod
     def load_data(cls, date_str: str | pl.Series, df_type: str) -> Df:
@@ -74,7 +73,10 @@ class Df(_DfBase):
             expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
         if not "time" in self.df.columns:
             expr.append(
-                pl.col(df_type_dict["time"]).cast(pl.Datetime("ns")).alias("time")
+                pl.col(df_type_dict["time"])
+                .cast(pl.Datetime("ns"))
+                .dt.convert_time_zone("America/New_York")
+                .alias("time")
             )
         self.df = self.df.with_columns(expr)
         return self
@@ -146,44 +148,39 @@ class Df(_DfBase):
 
         time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
         if time_start is not None:
-            filters.append(
-                time_since_midnight
-                >= pl.duration(nanoseconds=parse_time_to_ns(time_start))
-            )
+            filters.append(time_since_midnight >= pl.duration(nanoseconds=parse_time_to_ns(time_start)))
         if time_end is not None:
-            filters.append(
-                time_since_midnight
-                <= pl.duration(nanoseconds=parse_time_to_ns(time_end))
-            )
+            filters.append(time_since_midnight <= pl.duration(nanoseconds=parse_time_to_ns(time_end)))
 
         if date is not None:
             if "-" in date:
                 start_str, end_str = date.split("-", 1)
                 start_date = datetime.strptime(start_str.strip(), "%Y%m%d").date()
                 end_date = datetime.strptime(end_str.strip(), "%Y%m%d").date()
-                filters.append(
-                    (pl.col("time").dt.date() >= start_date)
-                    & (pl.col("time").dt.date() <= end_date)
-                )
+                filters.append((pl.col("time").dt.date() >= start_date) & (pl.col("time").dt.date() <= end_date))
             else:
                 date_value = datetime.strptime(date, "%Y%m%d").date()
                 filters.append(pl.col("time").dt.date() == date_value)
- 
+
         df = df.filter(f, *filters)
         return Df(df, self.df_type)
 
+    def to_pl(self) -> pl.DataFrame:
+        return self.df
 
     def __getattr__(self, name: str):
         attr = getattr(self.df, name)
         # if attr is a function that returns pl.DataFrame
         # return a wrapper around the function that returns Df on the DataFrame
         if callable(attr):
+
             @functools.wraps(attr)
             def wrapper(*args, **kwargs):
                 result = attr(*args, **kwargs)
                 if isinstance(result, pl.DataFrame):
                     return Df(result, self.df_type)
                 return result
+
             return wrapper
         return attr
 
