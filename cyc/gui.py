@@ -1,6 +1,5 @@
 import polars as pl
 import altair as alt
-import numpy as np
 
 
 def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
@@ -11,9 +10,10 @@ def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
 
     x, y can be very big (>1M points). so the efficiency is vital
     """
-    df = pl.DataFrame({"x": x, "y": y}).drop_nulls()
+    df = pl.DataFrame({"x": x, "y": y})
     if filter is not None:
         df = df.filter(filter)
+    df = df.drop_nulls()
     x_arr = df["x"].to_numpy()
     y_arr = df["y"].to_numpy()
 
