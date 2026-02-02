@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, TypedDict, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 import polars as pl
 import yaml
-from .study import add_stock, add_spot
+from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
 
 from .data_loaders import load_data, load_data_single
