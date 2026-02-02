@@ -13,7 +13,6 @@ def test_accum_ratiop():
 
     accum_ratiop(df, 'bkt_price', 'date', 'volume')
 
-    import pdb; pdb.set_trace()
 
 
 
