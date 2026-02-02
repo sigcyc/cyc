@@ -1,7 +1,9 @@
 from typing import Optional, cast
 import shutil
+import numpy as np
 import polars as pl
 import altair as alt
+from numba import njit
 from .marble import marble
 
 FLOAT_PRECISION = 2
@@ -75,11 +77,7 @@ def _plot(
         if (min_time.year, min_time.month) != (max_time.year, max_time.month):
             time_format = "%Y%m%d"
 
-    base = (
-        alt.Chart(self)
-        .encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format)))
-        .properties(width=width)
-    )
+    base = alt.Chart(self).encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format))).properties(width=width)
 
     tooltip = [
         alt.Tooltip(f"time:T", title="time"),
@@ -88,9 +86,7 @@ def _plot(
     ]
 
     left_chart = (
-        base.transform_fold(
-            cast(list[str | alt.FieldName], left_cols), as_=["series", "value"]
-        )
+        base.transform_fold(cast(list[str | alt.FieldName], left_cols), as_=["series", "value"])
         .mark_line()
         .encode(
             y=alt.Y(
@@ -103,9 +99,7 @@ def _plot(
         )
     )
     right_chart = (
-        base.transform_fold(
-            cast(list[str | alt.FieldName], right_cols), as_=["series", "value"]
-        )
+        base.transform_fold(cast(list[str | alt.FieldName], right_cols), as_=["series", "value"])
         .mark_line()
         .encode(
             y=alt.Y(
@@ -121,10 +115,44 @@ def _plot(
     return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
 
-def _to_df(df: pl.DataFrame, df_type='default'):
+def _to_df(df: pl.DataFrame, df_type="default"):
     from .df import Df
+
     return Df(df, df_type).enrich()
 
+
+@njit(cache=True)
+def _ewm_sum(time: np.ndarray, value: np.ndarray, alpha: float) -> np.ndarray:
+    """
+    Args:
+        alpha: the constant used in the exponential. It should match the scale in time
+            e.g. -ln(2) / half_life_us
+    """
+    n = len(value)
+    result_arr = np.zeros(n)
+    if n == 0:
+        return result_arr
+    result_arr[0] = value[0]
+    for i in range(1, n):
+        result_arr[i] = result_arr[i - 1] * np.exp((time[i] - time[i - 1]) * alpha) + value[i]
+    return result_arr
+
+
+@pl.api.register_expr_namespace("cyc")
+class Cyc:
+
+    def __init__(self, value) -> None:
+        self._value = value
+
+    def ewm_sum(self, time: pl.Expr, half_life_us: float):
+        """
+        Args:
+            half_life_us: in us as to match dt.timestamp() default
+        """
+        alpha = -np.log(2) / half_life_us
+        return pl.struct([self._value, time]).map_batches(
+            lambda s: _ewm_sum(s.struct[1].dt.timestamp().to_numpy(), s.struct[0].to_numpy(), alpha)
+        )
 
 
 setattr(pl.DataFrame, "_T", property(_print_transpose))
