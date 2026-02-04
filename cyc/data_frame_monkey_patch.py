@@ -9,7 +9,10 @@ from .marble import marble
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
-alt.renderers.enable("browser")
+try:
+    get_ipython()  # type: ignore
+except NameError:
+    alt.renderers.enable("browser")
 
 
 def get_terminal_size():
