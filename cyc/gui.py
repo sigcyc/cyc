@@ -1,5 +1,6 @@
 import polars as pl
 import altair as alt
+from sklearn.linear_model import LinearRegression
 
 
 def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
@@ -14,23 +15,16 @@ def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
     if filter is not None:
         df = df.filter(filter)
     df = df.drop_nulls()
-    x_arr = df["x"].to_numpy()
+    x_arr = df["x"].to_numpy().reshape(-1, 1)
     y_arr = df["y"].to_numpy()
 
-    # Linear regression via normal equations
-    x_mean, y_mean = x_arr.mean(), y_arr.mean()
-    x_diff = x_arr - x_mean
-    ss_xx = (x_diff**2).sum()
-    ss_xy = (x_diff * (y_arr - y_mean)).sum()
-    ss_yy = ((y_arr - y_mean) ** 2).sum()
-
-    coef = ss_xy / ss_xx if ss_xx else 0
-    intercept = y_mean - coef * x_mean
-    r2 = (ss_xy**2) / (ss_xx * ss_yy) if ss_xx and ss_yy else 0
+    model = LinearRegression().fit(x_arr, y_arr)
+    coef, intercept = model.coef_[0], model.intercept_
+    r2 = model.score(x_arr, y_arr)
 
     # Bucket aggregation in polars
-    x_min, x_max = x_arr.min(), x_arr.max()
-    bucket_width = (x_max - x_min) / k if x_max > x_min else 1
+    x_min, x_max = float(df["x"].min()), float(df["x"].max())  # type: ignore[arg-type]
+    bucket_width = (x_max - x_min) / k if x_max > x_min else 1.0
 
     bucketed = (
         df.with_columns(
