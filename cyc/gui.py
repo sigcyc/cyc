@@ -3,7 +3,7 @@ import altair as alt
 from sklearn.linear_model import LinearRegression
 
 
-def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
+def gs(x: pl.Series, y: pl.Series, k: int = 10, filter=None) -> alt.LayerChart:
     """
     Plot a graph with the following
     1. A linear regression line of x, y and add coefficient, intercept, R2 on the graph
@@ -23,29 +23,14 @@ def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
     r2 = model.score(x_arr, y_arr)
 
     # Bucket aggregation in polars
-    x_min, x_max = float(df["x"].min()), float(df["x"].max())  # type: ignore[arg-type]
-    bucket_width = (x_max - x_min) / k if x_max > x_min else 1.0
-
     bucketed = (
         df.with_columns(
-            ((pl.col("x") - x_min) / bucket_width)
-            .floor()
-            .cast(pl.Int64)
-            .clip(0, k - 1)
-            .alias("bucket")
+            ((pl.col("x").rank() - 1) * k // pl.len()).alias("bucket")
         )
         .group_by("bucket")
         .agg(pl.col("x").mean().alias("x"), pl.col("y").mean().alias("y"))
         .sort("bucket")
     )
-
-    line_df = pl.DataFrame(
-        {
-            "x": [x_min, x_max],
-            "y": [coef * x_min + intercept, coef * x_max + intercept],
-        }
-    )
-
     points = (
         alt.Chart(bucketed)
         .mark_circle(size=60)
@@ -54,6 +39,14 @@ def gs(x: pl.Series, y: pl.Series, k: int = 20, filter=None) -> alt.LayerChart:
             y=alt.Y("y:Q", title=y.name, scale=alt.Scale(zero=False)),
             tooltip=["x:Q", "y:Q"],
         )
+    )
+
+    x_min, x_max = df["x"].min(), df["x"].max()
+    line_df = pl.DataFrame(
+        {
+            "x": [x_min, x_max],
+            "y": [coef * x_min + intercept, coef * x_max + intercept],
+        }
     )
     line = (
         alt.Chart(line_df)
