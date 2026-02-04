@@ -11,12 +11,12 @@ pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
 try:
     get_ipython()  # type: ignore
+    def get_terminal_size():
+        return 200
 except NameError:
     alt.renderers.enable("browser")
-
-
-def get_terminal_size():
-    return shutil.get_terminal_size().columns - 5
+    def get_terminal_size():
+        return shutil.get_terminal_size().columns - 5
 
 
 def _print_transpose(df: pl.DataFrame) -> None:
