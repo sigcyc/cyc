@@ -16,7 +16,7 @@ def test__T_returns_full_column_representation():
 
 
 def test_df_s():
-    df = load_data("20241211", "polygon_test")
+    df = Df.load_data("20241211", "polygon_test")
     filtered = df.s(
         sym="UBER",
         time_start="09:05",
