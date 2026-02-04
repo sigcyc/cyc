@@ -122,7 +122,7 @@ def _to_df(df: pl.DataFrame, df_type="default"):
 
 
 @njit(cache=True)
-def _ewm_sum(time: np.ndarray, value: np.ndarray, alpha: float) -> np.ndarray:
+def _ewm_sum(value: np.ndarray, time: np.ndarray, alpha: float) -> np.ndarray:
     """
     Args:
         alpha: the constant used in the exponential. It should match the scale in time
@@ -151,7 +151,7 @@ class Cyc:
         """
         alpha = -np.log(2) / half_life_us
         return pl.struct([self._value, time]).map_batches(
-            lambda s: _ewm_sum(s.struct[1].dt.timestamp().to_numpy(), s.struct[0].to_numpy(), alpha)
+            lambda s: _ewm_sum(s.struct[0].to_numpy(), s.struct[1].dt.timestamp().to_numpy(), alpha)
         )
 
 
