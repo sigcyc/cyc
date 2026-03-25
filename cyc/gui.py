@@ -54,5 +54,5 @@ def gs(x: pl.Series, y: pl.Series, k: int = 10, filter=None) -> alt.LayerChart:
         .encode(x="x:Q", y="y:Q")
     )
 
-    title = f"y = {coef:.4g}x + {intercept:.4g}, R² = {r2:.4f}"
+    title = f"y = {coef:.4g}x + {intercept:.4g}, R² = {r2:.4f}, n = {len(df):,}"
     return (points + line).properties(width=600, height=400, title=title).interactive()
