@@ -36,4 +36,5 @@ stock_data_min1:
     path: /Volumes/ssd
   time: window_start
   sym: ticker
+  script: data_script/massive_stock_data
 
