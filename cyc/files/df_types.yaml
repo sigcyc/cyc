@@ -1,4 +1,4 @@
-data_dir: ~/workspace/data
+data_dir: /Volumes/ssd
 
 default:
   cols: 
@@ -26,6 +26,8 @@ polygon_test:
 stock_data_day:
   cols:
     core: [sym, close]
+  data:
+    path: ~/workspace/data
   time: date
   sym: ticker
 
@@ -33,7 +35,6 @@ stock_data_min1:
   cols:
     core: [sym, close]
   data:
-    path: /Volumes/ssd
   time: window_start
   sym: ticker
   script: data_script/massive_stock_data

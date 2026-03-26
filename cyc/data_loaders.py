@@ -1,7 +1,7 @@
 import polars as pl
 from datetime import datetime
 from tqdm import tqdm
-from .types import get_data_path
+from .config import get_data_path
 from .time_util import parse_dates
 
 

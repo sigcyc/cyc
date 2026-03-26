@@ -12,6 +12,7 @@ dependencies = [
     "altair>=5.0",
     "pyyaml",
     "exchange_calendars>=4.0",
+    "typer",
 ]
 
 [project.optional-dependencies]

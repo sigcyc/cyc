@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 import polars as pl
 from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
-from .types import get_df_type_dict
+from .config import get_df_type_dict
 
 from .data_loaders import load_data, load_data_single
 from .time_util import parse_time_to_ns
