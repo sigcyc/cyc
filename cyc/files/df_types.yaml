@@ -1,3 +1,5 @@
+data_dir: ~/workspace/data
+
 default:
   cols: 
     core: [sym, time]
@@ -24,8 +26,6 @@ polygon_test:
 stock_data_day:
   cols:
     core: [sym, close]
-  data:
-    path: /Users/yichenchen/workspace/data
   time: date
   sym: ticker
 

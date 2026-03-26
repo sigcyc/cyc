@@ -1,32 +1,14 @@
 from __future__ import annotations
 import functools
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, TypedDict, TYPE_CHECKING, Callable, Concatenate, ParamSpec
+from typing import Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 import polars as pl
-import yaml
 from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
+from .types import get_df_type_dict
 
 from .data_loaders import load_data, load_data_single
 from .time_util import parse_time_to_ns
-
-
-class DfType(TypedDict):
-    cols: dict[str, list[str]]
-    sym: str
-    time: str
-    data: dict[str, str]
-
-
-def get_df_type_dict(df_type: str) -> DfType:
-    """
-    Load yaml file from cyc/files/df_types.yaml. Return the entry with df_type
-    """
-    df_types_path = Path(__file__).resolve().parent / "files" / "df_types.yaml"
-    with df_types_path.open("r", encoding="utf-8") as file:
-        df_types = yaml.safe_load(file) or {}
-    return df_types[df_type]
 
 
 _DfBase = pl.DataFrame if TYPE_CHECKING else object

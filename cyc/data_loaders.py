@@ -1,23 +1,20 @@
 import polars as pl
 from datetime import datetime
-from pathlib import Path
 from tqdm import tqdm
-from .types import get_df_type_dict
+from .types import get_data_path
 from .time_util import parse_dates
 
 
 def load_data_single(df_type: str) -> pl.DataFrame:
-    data_path = get_df_type_dict(df_type)["data"]["path"]
-    return pl.read_parquet(Path(data_path) / f"{df_type}.parquet")
+    return pl.read_parquet(get_data_path(df_type) / f"{df_type}.parquet")
 
 
 def load_data(date_str: str | pl.Series, df_type: str) -> pl.DataFrame:
-    data_path = get_df_type_dict(df_type)["data"]["path"]
     if isinstance(date_str, pl.Series):
         date_list = [d.strftime("%Y%m%d") for d in date_str.to_list()]
     else:
         date_list = parse_dates(date_str)
-    data_root = (Path(data_path) / df_type).expanduser()
+    data_root = get_data_path(df_type) / df_type
     if not data_root.exists():
         raise FileNotFoundError(f"Data path '{data_root}' does not exist")
 
