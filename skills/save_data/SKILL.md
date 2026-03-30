@@ -5,7 +5,7 @@ argument-hint: <script_path> <date_range> [--processes N] [--data-dir path]
 allowed-tools: Bash
 ---
 
-Run `${CLAUDE_SKILL_DIR}/scripts/batch_save.py` with the user's arguments:
+Run `${CLAUDE_SKILL_DIR}/scripts/batch_save.py` with the user's arguments. Always use `run_in_background: true` on the Bash tool call.
 
 ```bash
 python ${CLAUDE_SKILL_DIR}/scripts/batch_save.py <script_path> <date_range> --processes <N>
