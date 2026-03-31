@@ -1,7 +1,7 @@
 from __future__ import annotations
 import functools
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
+from typing import Optional, Iterable, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 import polars as pl
 from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
@@ -70,7 +70,7 @@ class Df(_DfBase):
 
     def s(
         self,
-        sym: Optional[str] = None,
+        sym: Optional[str | Iterable[str]] = None,
         time_start: Optional[str] = None,
         time_end: Optional[str] = None,
         o: Optional[list[str]] = None,  # options in df_types.yaml
@@ -126,7 +126,10 @@ class Df(_DfBase):
 
         filters = []
         if sym is not None:
-            filters.append(pl.col("sym") == sym)
+            if isinstance(sym, str):
+                filters.append(pl.col("sym") == sym)
+            else:
+                filters.append(pl.col("sym").is_in(sym))
 
         time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
         if time_start is not None:
