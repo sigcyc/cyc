@@ -6,3 +6,4 @@ class DfType(TypedDict):
     sym: str
     time: str
     data: dict[str, str]
+    calendar: str

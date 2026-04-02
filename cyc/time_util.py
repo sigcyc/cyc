@@ -45,7 +45,7 @@ def parse_time_to_ns(raw: str) -> int:
     return total_seconds * 1_000_000_000 + nanosecond
 
 
-def parse_dates(date: str) -> list[str]:
+def parse_dates(date: str, calendar: str = "nyse") -> list[str]:
     """
     Given a date in the format of YYYYMMDD-YYYYMMDD. For example '20240101-20240110',
     return a list of dates that are trading days
@@ -74,35 +74,37 @@ def parse_dates(date: str) -> list[str]:
     trading_days: list[str] = []
     current = start
     while current <= end:
-        if _is_trading_day(current):
+        if _is_trading_day(current, calendar):
             trading_days.append(current.strftime("%Y%m%d"))
         current += timedelta(days=1)
 
     return trading_days
 
 
-def previous_trading_day(date: pl.Series) -> pl.Series:
+def previous_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
     """Given date, calculate the previous trading day."""
 
     def _prev(d: _date) -> _date:
         d -= timedelta(days=1)
-        while not _is_trading_day(d):
+        while not _is_trading_day(d, calendar):
             d -= timedelta(days=1)
         return d
 
     return date.map_elements(_prev, return_dtype=pl.Date)
 
 
-def next_trading_day(date: pl.Series) -> pl.Series:
+def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
     """Given date, calculate the next trading day."""
     def _next(d: _date) -> _date:
         d += timedelta(days=1)
-        while not _is_trading_day(d):
+        while not _is_trading_day(d, calendar):
             d += timedelta(days=1)
         return d
     return date.map_elements(_next, return_dtype=pl.Date)
 
 
 @lru_cache(maxsize=1024)
-def _is_trading_day(day: _date) -> bool:
+def _is_trading_day(day: _date, calendar: str = "nyse") -> bool:
+    if calendar == "crypto":
+        return True
     return _NYSE.is_session(day)

@@ -1,7 +1,7 @@
 import polars as pl
 from datetime import datetime
 from tqdm import tqdm
-from .config import get_data_path
+from .config import get_data_path, get_calendar
 from .time_util import parse_dates
 
 
@@ -13,7 +13,7 @@ def load_data(date_str: str | pl.Series, df_type: str) -> pl.DataFrame:
     if isinstance(date_str, pl.Series):
         date_list = [d.strftime("%Y%m%d") for d in date_str.to_list()]
     else:
-        date_list = parse_dates(date_str)
+        date_list = parse_dates(date_str, get_calendar(df_type))
     data_root = get_data_path(df_type) / df_type
     if not data_root.exists():
         raise FileNotFoundError(f"Data path '{data_root}' does not exist")

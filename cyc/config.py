@@ -18,6 +18,11 @@ def get_df_type_dict(df_type: str) -> DfType:
     return _load_yaml()[df_type]
 
 
+def get_calendar(df_type: str) -> str:
+    config = _load_yaml()
+    return config[df_type].get("calendar", config["default"].get("calendar", "nyse"))
+
+
 def get_data_path(df_type: str) -> Path:
     config = _load_yaml()
     data_path = (config[df_type].get("data") or {}).get("path", config["data_dir"])

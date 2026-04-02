@@ -1,10 +1,11 @@
 data_dir: /Volumes/ssd
 
 default:
-  cols: 
+  cols:
     core: [sym, time]
   sym: sym
   time: time
+  calendar: nyse
 futures_report:
   cols:
     core: [sym, time, Dealer_Positions_Long_All]
