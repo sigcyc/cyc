@@ -40,3 +40,7 @@ stock_data_min1:
   sym: ticker
   script: data_script/massive_stock_data
 
+
+crypto:
+  time: exchange_timestamp
+  calendar: crypto

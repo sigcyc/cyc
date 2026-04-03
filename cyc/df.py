@@ -42,26 +42,33 @@ class Df(_DfBase):
 
     @classmethod
     def load_data_single(cls, df_type: str) -> Df:
-        return Df(load_data_single(df_type), df_type).enrich()
+        lf = cls._enrich(load_data_single(df_type), df_type)
+        return Df(lf.collect(), df_type)
 
     @classmethod
-    def load_data(cls, date_str: str | pl.Series, df_type: str) -> Df:
-        return Df(load_data(date_str, df_type), df_type).enrich()
+    def load_data(cls, date_str: str | pl.Series, df_type: str, sym: str | Iterable[str] | None = None) -> Df:
+        lf = cls._enrich(load_data(date_str, df_type), df_type)
+        if sym is not None:
+            if isinstance(sym, str):
+                lf = lf.filter(pl.col("sym") == sym)
+            else:
+                lf = lf.filter(pl.col("sym").is_in(list(sym)))
+        return Df(lf.collect(), df_type)
 
-    def enrich(self) -> "Df":
-        df_type_dict = get_df_type_dict(self.df_type)
+    @classmethod
+    def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:
+        df_type_dict = get_df_type_dict(df_type)
         expr = []
-        if not "sym" in self.df.columns:
+        if "sym" not in lf.columns:
             expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
-        if not "time" in self.df.columns:
+        if "time" not in lf.columns:
             expr.append(
                 pl.col(df_type_dict["time"])
                 .cast(pl.Datetime("ns"))
                 .dt.convert_time_zone("America/New_York")
                 .alias("time")
             )
-        self.df = self.df.with_columns(expr)
-        return self
+        return lf.with_columns(expr)
 
     add_stock = wrap_df_func(add_stock)
     add_spot = wrap_df_func(add_spot)
