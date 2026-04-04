@@ -5,12 +5,7 @@
 Refactor data_loaders to make it more extensible
 
 ## Detail
-1. data_root is always df_type
-2. There are the cases how the data is organized. In the first case, each file will be named data_root/20250101.parquet
-3. In the second case, it will have a hive_partitioning like data_root/sym=AAPL/20250101.parquet. I might add more depth in the future. Prioritize clean code at the moment
-4. It will have some a progress bar
-5. It will print the dates where no data is found
-6. Rely on existing packages and write minimal code
-
-
-
+1. in data_loaders.py, add a function load_data_hive_sym(date_str, df_type, sym) that load hive data. Do not use glob. Use scan_parquet
+2. in data_loaders.py, refactor function load_data(date_str, df_type) that only works data_root/YYYYMMDD.parquet.
+3. add a storage_pattern in df_types.yaml. If None, default to data_root/YYYYMMDD.parquet. If hive_sym, the path is data_root/sym=AAPL/YYYYMMDD.parquet
+4. in Df.load_data, route to data_loaders/load_data, data_loaders/load_data_hive_sym based on storage_pattern

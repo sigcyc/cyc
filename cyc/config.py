@@ -23,6 +23,11 @@ def get_calendar(df_type: str) -> str:
     return config[df_type].get("calendar", config["default"].get("calendar", "nyse"))
 
 
+def get_storage_pattern(df_type: str) -> str | None:
+    config = _load_yaml()
+    return config[df_type].get("storage_pattern")
+
+
 def get_data_path(df_type: str) -> Path:
     config = _load_yaml()
     data_path = (config[df_type].get("data") or {}).get("path", config["data_dir"])

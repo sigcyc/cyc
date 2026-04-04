@@ -7,7 +7,8 @@ from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
 from .config import get_df_type_dict
 
-from .data_loaders import load_data, load_data_single
+from .data_loaders import load_data, load_data_single, load_data_hive_sym
+from .config import get_storage_pattern
 from .time_util import parse_time_to_ns
 
 
@@ -47,12 +48,18 @@ class Df(_DfBase):
 
     @classmethod
     def load_data(cls, date_str: str | pl.Series, df_type: str, sym: str | Iterable[str] | None = None) -> Df:
-        lf = cls._enrich(load_data(date_str, df_type), df_type)
-        if sym is not None:
-            if isinstance(sym, str):
-                lf = lf.filter(pl.col("sym") == sym)
-            else:
-                lf = lf.filter(pl.col("sym").is_in(list(sym)))
+        storage_pattern = get_storage_pattern(df_type)
+
+        if storage_pattern == "hive_sym":
+            lf = cls._enrich(load_data_hive_sym(date_str, df_type, sym), df_type)
+        else:
+            lf = cls._enrich(load_data(date_str, df_type), df_type)
+            if sym is not None:
+                if isinstance(sym, str):
+                    lf = lf.filter(pl.col("sym") == sym)
+                else:
+                    lf = lf.filter(pl.col("sym").is_in(list(sym)))
+
         return Df(lf.collect(), df_type)
 
     @classmethod

@@ -1,5 +1,7 @@
 data_dir: /Volumes/ssd
 
+# storage_pattern: omit for data_root/YYYYMMDD.parquet, "hive_sym" for data_root/sym=AAPL/YYYYMMDD.parquet
+
 default:
   cols:
     core: [sym, time]

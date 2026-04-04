@@ -1,5 +1,5 @@
+from typing import Iterable
 import polars as pl
-from tqdm import tqdm
 from .config import get_data_path, get_calendar
 from .time_util import parse_dates
 
@@ -8,20 +8,51 @@ def load_data_single(df_type: str) -> pl.LazyFrame:
     return pl.scan_parquet(get_data_path(df_type) / f"{df_type}.parquet")
 
 
-def load_data(date_str: str | pl.Series, df_type: str) -> pl.LazyFrame:
+def _get_date_list(date_str: str | pl.Series, df_type: str) -> list[str]:
     if isinstance(date_str, pl.Series):
-        date_list = [d.strftime("%Y%m%d") for d in date_str.to_list()]
-    else:
-        date_list = parse_dates(date_str, get_calendar(df_type))
+        return [d.strftime("%Y%m%d") for d in date_str.to_list()]
+    return parse_dates(date_str, get_calendar(df_type))
+
+
+def load_data(date_str: str | pl.Series, df_type: str) -> pl.LazyFrame:
+    date_list = _get_date_list(date_str, df_type)
     data_root = get_data_path(df_type) / df_type
 
     files, missing = [], []
-    for d in tqdm(date_list):
-        found = list(data_root.glob(f"**/{d}.parquet"))
-        if found:
-            files.extend(found)
+    for d in date_list:
+        f = data_root / f"{d}.parquet"
+        if f.exists():
+            files.append(f)
         else:
             missing.append(d)
+
+    if missing:
+        print("missing_dates: " + ", ".join(missing))
+    if not files:
+        raise FileNotFoundError(f"No data found in '{data_root}'")
+
+    return pl.scan_parquet(files)
+
+
+def load_data_hive_sym(date_str: str | pl.Series, df_type: str, sym: str | Iterable[str] | None = None) -> pl.LazyFrame:
+    date_list = _get_date_list(date_str, df_type)
+    data_root = get_data_path(df_type) / df_type
+
+    if sym is None:
+        syms = [p.name.split("=", 1)[1] for p in sorted(data_root.iterdir()) if p.is_dir() and p.name.startswith("sym=")]
+    elif isinstance(sym, str):
+        syms = [sym]
+    else:
+        syms = list(sym)
+
+    files, missing = [], []
+    for s in syms:
+        for d in date_list:
+            f = data_root / f"sym={s}" / f"{d}.parquet"
+            if f.exists():
+                files.append(f)
+            else:
+                missing.append(f"{s}/{d}")
 
     if missing:
         print("missing_dates: " + ", ".join(missing))
