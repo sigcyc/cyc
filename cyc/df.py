@@ -66,9 +66,10 @@ class Df(_DfBase):
     def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:
         df_type_dict = get_df_type_dict(df_type)
         expr = []
-        if "sym" not in lf.columns:
+        columns = lf.collect_schema().names()
+        if "sym" not in columns:
             expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
-        if "time" not in lf.columns:
+        if "time" not in columns:
             expr.append(
                 pl.col(df_type_dict["time"])
                 .cast(pl.Datetime("ns"))

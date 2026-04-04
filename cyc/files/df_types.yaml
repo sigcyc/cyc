@@ -46,3 +46,5 @@ stock_data_min1:
 crypto:
   time: exchange_timestamp
   calendar: crypto
+  storage_pattern: hive_sym
+
