@@ -70,12 +70,17 @@ class Df(_DfBase):
         if "sym" not in columns:
             expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
         if "time" not in columns:
-            expr.append(
-                pl.col(df_type_dict["time"])
-                .cast(pl.Datetime("ns"))
-                .dt.convert_time_zone("America/New_York")
-                .alias("time")
-            )
+            time_col = df_type_dict["time"]
+            time_dtype = lf.collect_schema()[time_col]
+            if isinstance(time_dtype, pl.Datetime):
+                expr.append(pl.col(time_col).alias("time"))
+            else:
+                expr.append(
+                    pl.col(time_col)
+                    .cast(pl.Datetime("ns"))
+                    .dt.convert_time_zone("America/New_York")
+                    .alias("time")
+                )
         return lf.with_columns(expr)
 
     add_stock = wrap_df_func(add_stock)

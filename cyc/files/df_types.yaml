@@ -44,6 +44,8 @@ stock_data_min1:
 
 
 crypto:
+  cols:
+    core: [sym, time, trade_price]
   time: exchange_timestamp
   calendar: crypto
   storage_pattern: hive_sym

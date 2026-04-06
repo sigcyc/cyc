@@ -9,6 +9,7 @@ from .marble import marble
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
+alt.data_transformers.enable('vegafusion')
 try:
     get_ipython()  # type: ignore
     def get_terminal_size():

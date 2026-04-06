@@ -9,6 +9,7 @@ description = "Utilities for working with intraday stock datasets."
 requires-python = ">=3.10"
 dependencies = [
     "polars>=0.20",
+    "vegafusion",
     "altair>=5.0",
     "pyyaml",
     "exchange_calendars>=4.0",
