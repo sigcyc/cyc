@@ -10,17 +10,14 @@ FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
 alt.data_transformers.enable("vegafusion")
-alt.renderers.enable("browser")
 try:
     get_ipython()  # type: ignore
-
-    def get_terminal_size():
-        return 200
-
-except NameError:
-
+    alt.renderers.enable("browser")
     def get_terminal_size():
         return shutil.get_terminal_size().columns - 5
+except NameError:
+    def get_terminal_size():
+        return 200
 
 
 def _print_transpose(df: pl.DataFrame) -> None:
@@ -43,6 +40,7 @@ def _print_all(
     chunk_size = max(1, terminal_width // 12)
     if len(df) > 10000:
         raise ValueError("more than 10k rows")
+    df = df.with_columns(pl.col(pl.Datetime).dt.replace_time_zone(None))
     with pl.Config(
         tbl_rows=-1,
         tbl_cols=-1,
@@ -93,7 +91,7 @@ def _plot(
         df = df.sample(10_000).sort("time")
     base = (
         alt.Chart(df)
-        .encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format)))
+        .encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format, labelAngle=-45)))
         .properties(width=width)
     )
 
