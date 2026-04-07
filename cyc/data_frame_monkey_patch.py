@@ -83,10 +83,14 @@ def _plot(
         max_time = self["time"].max()
         if (min_time.year, min_time.month) != (max_time.year, max_time.month):
             time_format = "%Y%m%d"
+        else:
+            time_format = "%H:%M:%S"
 
     # VegaFusion interprets naive datetimes in local_tz by default.
     # Using the default local scale means local-in/local-out cancel, preserving face values.
     df = self.with_columns(pl.col("time").dt.replace_time_zone(None))
+    if len(df) > 10_000:
+        df = df.sample(10_000).sort("time")
     base = (
         alt.Chart(df)
         .encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format)))
