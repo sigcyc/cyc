@@ -9,13 +9,16 @@ from .marble import marble
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
-alt.data_transformers.enable('vegafusion')
+alt.data_transformers.enable("vegafusion")
+alt.renderers.enable("browser")
 try:
     get_ipython()  # type: ignore
+
     def get_terminal_size():
         return 200
+
 except NameError:
-    alt.renderers.enable("browser")
+
     def get_terminal_size():
         return shutil.get_terminal_size().columns - 5
 
@@ -81,7 +84,14 @@ def _plot(
         if (min_time.year, min_time.month) != (max_time.year, max_time.month):
             time_format = "%Y%m%d"
 
-    base = alt.Chart(self).encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format))).properties(width=width)
+    # VegaFusion interprets naive datetimes in local_tz by default.
+    # Using the default local scale means local-in/local-out cancel, preserving face values.
+    df = self.with_columns(pl.col("time").dt.replace_time_zone(None))
+    base = (
+        alt.Chart(df)
+        .encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format)))
+        .properties(width=width)
+    )
 
     tooltip = [
         alt.Tooltip(f"time:T", title="time"),
