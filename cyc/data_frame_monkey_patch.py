@@ -13,9 +13,12 @@ alt.data_transformers.enable("vegafusion")
 try:
     get_ipython()  # type: ignore
     alt.renderers.enable("browser")
+
     def get_terminal_size():
         return shutil.get_terminal_size().columns - 5
+
 except NameError:
+
     def get_terminal_size():
         return 200
 
@@ -30,17 +33,51 @@ def _print_transpose(df: pl.DataFrame) -> None:
         print(repr(df.head(3).transpose(include_header=True)))
 
 
+def _estimate_col_widths(df: pl.DataFrame, float_precision: int, fmt_str_lengths: int) -> list[int]:
+    """Estimate display width of each column by sampling rows."""
+    PADDING = 2
+    sample = pl.concat([df.head(10), df.tail(10)]) if len(df) > 20 else df
+    widths = []
+    for col in sample.columns:
+        s = sample[col]
+        header_w = len(col) + PADDING
+        if s.dtype.is_float() and float_precision is not None:
+            str_col = s.round(float_precision).cast(pl.String).fill_null("null")
+        else:
+            str_col = s.cast(pl.String).fill_null("null")
+        raw_max = str_col.str.len_chars().max()
+        max_len = min(raw_max if isinstance(raw_max, int) else 0, fmt_str_lengths)
+        data_w = max_len + PADDING
+        widths.append(max(header_w, data_w, 5))
+    return widths
+
+
 def _print_all(
     df: pl.DataFrame,
     float_precision: Optional[int] = FLOAT_PRECISION,
     fmt_str_lengths: Optional[int] = 100,
 ) -> None:
-    """Print the entire DataFrame content in terminal-width-sized chunks."""
+    """Print the entire DataFrame, grouping columns by estimated width to fit terminal."""
     terminal_width = get_terminal_size()
-    chunk_size = max(1, terminal_width // 12)
     if len(df) > 10000:
         raise ValueError("more than 10k rows")
     df = df.with_columns(pl.col(pl.Datetime).dt.replace_time_zone(None))
+    col_widths = _estimate_col_widths(df, float_precision or FLOAT_PRECISION, fmt_str_lengths or 100)
+
+    groups: list[list[str]] = []
+    start = 0
+    while start < len(df.columns):
+        total = 1  # rightmost border
+        end = start
+        while end < len(df.columns):
+            w = col_widths[end] + 1  # column width + border char
+            if total + w > terminal_width and end > start:
+                break
+            total += w
+            end += 1
+        groups.append(df.columns[start:end])
+        start = end
+
     with pl.Config(
         tbl_rows=-1,
         tbl_cols=-1,
@@ -48,10 +85,9 @@ def _print_all(
         float_precision=float_precision,
         fmt_str_lengths=fmt_str_lengths,
     ):
-        for start in range(0, len(df.columns), chunk_size):
-            cols = df.columns[start : start + chunk_size]
+        for i, cols in enumerate(groups):
             print(repr(df.select(cols)))
-            if start + chunk_size < len(df.columns):
+            if i < len(groups) - 1:
                 print()
 
 
