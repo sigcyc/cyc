@@ -98,6 +98,7 @@ class Df(_DfBase):
         r: Optional[str] = None,  # regular expression
         f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
+        sample: Optional[int] = None,
     ) -> "Df":
         """
         Filter the columns to sym + time + col_names, then
@@ -168,6 +169,8 @@ class Df(_DfBase):
                 filters.append(pl.col("time").dt.date() == date_value)
 
         df = df.filter(f, *filters)
+        if sample is not None:
+            df = df.sample(n=sample).sort("time")
         return Df(df, self.df_type)
 
     def to_pl(self) -> pl.DataFrame:

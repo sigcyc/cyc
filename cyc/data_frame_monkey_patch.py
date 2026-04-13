@@ -9,6 +9,7 @@ from .marble import marble
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
+pl.Config.set_tbl_cols(20)
 alt.data_transformers.enable("vegafusion")
 try:
     get_ipython()  # type: ignore
@@ -115,7 +116,7 @@ def _plot(
     if time_format is alt.Undefined:
         min_time = self["time"].min()
         max_time = self["time"].max()
-        if (min_time.year, min_time.month) != (max_time.year, max_time.month):
+        if min_time.date() != max_time.date():
             time_format = "%Y%m%d"
         else:
             time_format = "%H:%M:%S"
