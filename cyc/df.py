@@ -56,7 +56,7 @@ class Df(_DfBase):
         else:
             lf = cls._enrich(load_data(date_str, df_type), df_type)
             if sym is not None:
-                if isinstance(sym, str):
+                if isinstance(sym, (str, int)):
                     lf = lf.filter(pl.col("sym") == sym)
                 else:
                     lf = lf.filter(pl.col("sym").is_in(list(sym)))
@@ -91,7 +91,7 @@ class Df(_DfBase):
 
     def s(
         self,
-        sym: Optional[str | Iterable[str]] = None,
+        sym: SymType = None,
         time_start: Optional[str] = None,
         time_end: Optional[str] = None,
         o: Optional[list[str]] = None,  # options in df_types.yaml
@@ -148,7 +148,7 @@ class Df(_DfBase):
 
         filters = []
         if sym is not None:
-            if isinstance(sym, str):
+            if isinstance(sym, (str, int)):
                 filters.append(pl.col("sym") == sym)
             else:
                 filters.append(pl.col("sym").is_in(sym))

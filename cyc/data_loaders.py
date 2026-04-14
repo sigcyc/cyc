@@ -40,7 +40,7 @@ def load_data_hive_sym(date_str: str | pl.Series, df_type: str, sym: SymType = N
 
     if sym is None:
         syms = [p.name.split("=", 1)[1] for p in sorted(data_root.iterdir()) if p.is_dir() and p.name.startswith("sym=")]
-    elif isinstance(sym, str):
+    elif isinstance(sym, (str, int)):
         syms = [sym]
     else:
         syms = list(sym)
