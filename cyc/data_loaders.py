@@ -1,4 +1,4 @@
-from typing import Iterable
+from .types import SymType
 import polars as pl
 from .config import get_data_path, get_calendar
 from .time_util import parse_dates
@@ -34,7 +34,7 @@ def load_data(date_str: str | pl.Series, df_type: str) -> pl.LazyFrame:
     return pl.scan_parquet(files)
 
 
-def load_data_hive_sym(date_str: str | pl.Series, df_type: str, sym: str | Iterable[str] | None = None) -> pl.LazyFrame:
+def load_data_hive_sym(date_str: str | pl.Series, df_type: str, sym: SymType = None) -> pl.LazyFrame:
     date_list = _get_date_list(date_str, df_type)
     data_root = get_data_path(df_type) / df_type
 

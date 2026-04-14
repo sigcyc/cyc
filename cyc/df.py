@@ -1,7 +1,8 @@
 from __future__ import annotations
 import functools
 from datetime import datetime
-from typing import Optional, Iterable, TYPE_CHECKING, Callable, Concatenate, ParamSpec
+from typing import Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
+from .types import SymType
 import polars as pl
 from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
@@ -47,7 +48,7 @@ class Df(_DfBase):
         return Df(lf.collect(), df_type)
 
     @classmethod
-    def load_data(cls, date_str: str | pl.Series, df_type: str, sym: str | Iterable[str] | None = None) -> Df:
+    def load_data(cls, date_str: str | pl.Series, df_type: str, sym: SymType = None) -> Df:
         storage_pattern = get_storage_pattern(df_type)
 
         if storage_pattern == "hive_sym":

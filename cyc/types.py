@@ -1,5 +1,6 @@
-from typing import TypedDict
+from typing import Iterable, Optional, TypedDict
 
+SymType = Optional[str | int | Iterable[str | int]]
 
 class DfType(TypedDict):
     cols: dict[str, list[str]]
