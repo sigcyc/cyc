@@ -5,7 +5,7 @@ from .time_util import parse_dates
 
 
 def load_data_single(df_type: str) -> pl.LazyFrame:
-    return pl.scan_parquet(get_data_path(df_type) / f"{df_type}.parquet")
+    return pl.scan_parquet(get_data_path(df_type) / df_type, hive_partitioning=True)
 
 
 def _get_date_list(date_str: str | pl.Series, df_type: str) -> list[str]:
