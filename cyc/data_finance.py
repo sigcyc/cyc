@@ -38,7 +38,7 @@ def add_stock(self: pl.DataFrame, fields: str | list[str], sym: str = 'sym') -> 
     Returns:
         DataFrame with sym, date, and requested fields
     """
-    stock_data = load_data(self["date"].unique(), "stock_data_day")
+    stock_data = load_data("stock_data_day", self["date"].unique())
     field_list = [fields] if isinstance(fields, str) else fields
     stock_data = stock_data.select(
         pl.col("ticker").alias(sym), "date", *field_list

@@ -4,7 +4,7 @@ from cyc.df import Df
 
 
 def test_add_stock_single_field():
-    df = Df.load_data("20210715-20210721", "stock_data_day")
+    df = Df.load_data("stock_data_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_stock("close")
     assert "close" in result.columns
@@ -13,7 +13,7 @@ def test_add_stock_single_field():
 
 
 def test_add_stock_multiple_fields():
-    df = Df.load_data("20210715-20210721", "stock_data_day")
+    df = Df.load_data("stock_data_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_stock(["open", "close"])
     assert "open" in result.columns
@@ -22,7 +22,7 @@ def test_add_stock_multiple_fields():
 
 
 def test_add_spot_current_day():
-    df = Df.load_data("20210715-20210721", "stock_data_day")
+    df = Df.load_data("stock_data_day", "20210715-20210721")
     nvda = df.s("NVDA")
     expected_close = nvda["close"]
     result = nvda.select("sym", "date").add_spot(0)
@@ -32,7 +32,7 @@ def test_add_spot_current_day():
 
 
 def test_add_spot_forward():
-    df = Df.load_data("20210715-20210721", "stock_data_day")
+    df = Df.load_data("stock_data_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_spot(1)
     assert "spot_d1" in result.columns
@@ -41,7 +41,7 @@ def test_add_spot_forward():
 
 
 def test_add_spot_backward():
-    df = Df.load_data("20210715-20210721", "stock_data_day")
+    df = Df.load_data("stock_data_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_spot(-1)
     assert "spot_dm1" in result.columns

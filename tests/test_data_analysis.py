@@ -4,7 +4,7 @@ from cyc.data_loaders import load_data
 from cyc.data_analysis import accum_ratiop
 
 def test_accum_ratiop():
-    df = load_data("20241211-20241214", "stock_data_day")
+    df = load_data("stock_data_day", "20241211-20241214")
 
     df = df.with_columns(pl.col("close").cut([0, 100, 300, 1000]).alias("bkt_price"))
 

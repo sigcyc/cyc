@@ -7,7 +7,7 @@ from cyc import Df
 
 def test_join_asof():
 
-    df = load_data("20241211-20241213", "polygon_test")
+    df = load_data("polygon_test", "20241211-20241213")
 
     mh = MergeHelper.merge(df["time"].dt.offset_by('1h'), df["time"], df["sym"], df["sym"])
     df.with_columns(mh.get(df["price"]).alias('spot_min60')).to_df().s(date='20241211').p(['price', 'spot_min60'])
