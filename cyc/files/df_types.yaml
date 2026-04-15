@@ -31,7 +31,7 @@ stock_data_day:
     core: [sym, close]
   data:
     path: ~/workspace/data
-  date: date
+  time: window_start
   sym: ticker
 
 stock_data_min1:
