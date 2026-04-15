@@ -70,23 +70,40 @@ class Df(_DfBase):
     @classmethod
     def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:
         df_type_dict = get_df_type_dict(df_type)
+        schema = lf.collect_schema()
+        columns = schema.names()
         expr = []
-        columns = lf.collect_schema().names()
+
         if "sym" not in columns:
             expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
-        if "time" not in columns:
-            time_col = df_type_dict["time"]
-            time_dtype = lf.collect_schema()[time_col]
-            if isinstance(time_dtype, pl.Datetime):
+
+        has_time = "time" in columns
+        has_date = "date" in columns
+
+        if not has_time and (time_col := df_type_dict.get("time")):
+            if isinstance(schema[time_col], pl.Datetime):
                 expr.append(pl.col(time_col).alias("time"))
             else:
                 expr.append(
-                    pl.col(time_col)
-                    .cast(pl.Datetime("ns"))
-                    .dt.convert_time_zone("America/New_York")
-                    .alias("time")
+                    pl.col(time_col).cast(pl.Datetime("ns")).dt.convert_time_zone("America/New_York").alias("time")
                 )
-        return lf.with_columns(expr)
+            has_time = True
+
+        if not has_date and (date_col := df_type_dict.get("date")):
+            expr.append(pl.col(date_col).alias("date"))
+            has_date = True
+
+        lf = lf.with_columns(expr)
+
+        if has_time and has_date:
+            return lf
+        if has_time:
+            return lf.with_columns(pl.col("time").dt.date().alias("date"))
+        if has_date:
+            return lf.with_columns(
+                pl.col("date").cast(pl.Datetime("ns")).dt.replace_time_zone("America/New_York").alias("time")
+            )
+        return lf
 
     add_stock = wrap_df_func(add_stock)
     add_spot = wrap_df_func(add_spot)
