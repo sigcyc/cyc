@@ -18,12 +18,11 @@ _DfBase = pl.DataFrame if TYPE_CHECKING else object
 P = ParamSpec("P")
 
 
-def filter_sym(lf: pl.LazyFrame, sym: SymType) -> pl.LazyFrame:
+def filter_sym(sym: SymType) -> pl.Expr:
     if sym is None:
-        return lf
-    if isinstance(sym, (str, int)):
-        return lf.filter(pl.col("sym") == sym)
-    return lf.filter(pl.col("sym").is_in(list(sym)))
+        return pl.lit(True)
+    syms = [sym] if isinstance(sym, (str, int)) else list(sym)
+    return pl.col("sym").is_in(syms)
 
 
 def wrap_df_func(
@@ -64,7 +63,7 @@ class Df(_DfBase):
                 lf = load_data(df_type, date_str)
 
         lf = cls._enrich(lf, df_type)
-        lf = filter_sym(lf, sym)
+        lf = lf.filter(filter_sym(sym))
         return Df(lf.collect(), df_type)
 
     @classmethod
@@ -167,12 +166,7 @@ class Df(_DfBase):
         )
         df = df.with_columns([pl.col(name).cum_sum() for name in col_list_cumsum])
 
-        filters = []
-        if sym is not None:
-            if isinstance(sym, (str, int)):
-                filters.append(pl.col("sym") == sym)
-            else:
-                filters.append(pl.col("sym").is_in(sym))
+        filters = [filter_sym(sym)]
 
         time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
         if time_start is not None:
