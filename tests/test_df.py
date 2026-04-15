@@ -37,7 +37,7 @@ def test_load_data():
 
 
 def test_df_p():
-    df = load_data("polygon_test", "20241211-20241213")
+    df = load_data("polygon_test", "20241211-20241213").collect()
     chart = df.p(left_axis=[0], right_axis=[1])
     assert chart is not None
 
