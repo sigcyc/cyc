@@ -3,19 +3,16 @@ import polars as pl
 from .config import get_data_path, get_calendar
 from .time_util import parse_dates
 
-
-def load_data_single(df_type: str) -> pl.LazyFrame:
-    return pl.scan_parquet(get_data_path(df_type) / df_type, hive_partitioning=True)
-
-
-def _get_date_list(date_str: str | pl.Series, df_type: str) -> list[str]:
+def _get_date_list(df_type: str, date_str: str | pl.Series) -> list[str]:
     if isinstance(date_str, pl.Series):
         return [d.strftime("%Y%m%d") for d in date_str.to_list()]
     return parse_dates(date_str, get_calendar(df_type))
 
+def load_data_single(df_type: str) -> pl.LazyFrame:
+    return pl.scan_parquet(get_data_path(df_type) / df_type, hive_partitioning=True)
 
-def load_data(date_str: str | pl.Series, df_type: str) -> pl.LazyFrame:
-    date_list = _get_date_list(date_str, df_type)
+def load_data(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
+    date_list = _get_date_list(df_type, date_str)
     data_root = get_data_path(df_type) / df_type
 
     files, missing = [], []
@@ -34,8 +31,8 @@ def load_data(date_str: str | pl.Series, df_type: str) -> pl.LazyFrame:
     return pl.scan_parquet(files)
 
 
-def load_data_hive_sym(date_str: str | pl.Series, df_type: str, sym: SymType = None) -> pl.LazyFrame:
-    date_list = _get_date_list(date_str, df_type)
+def load_data_hive_sym(df_type: str, date_str: str | pl.Series, sym: SymType = None) -> pl.LazyFrame:
+    date_list = _get_date_list(df_type, date_str)
     data_root = get_data_path(df_type) / df_type
 
     if sym is None:
