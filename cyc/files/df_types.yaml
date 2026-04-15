@@ -12,7 +12,7 @@ futures_report:
   cols:
     core: [sym, time, Dealer_Positions_Long_All]
   sym: Market_and_Exchange_Names
-  time: date
+  date: date
   data:
     path: ~/workspace/futures_report 
 
@@ -31,7 +31,7 @@ stock_data_day:
     core: [sym, close]
   data:
     path: ~/workspace/data
-  time: date
+  date: date
   sym: ticker
 
 stock_data_min1:

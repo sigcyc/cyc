@@ -53,7 +53,6 @@ class Df(_DfBase):
     @classmethod
     def load_data(cls, df_type: str, date_str: str | pl.Series | None = None, sym: SymType = None) -> Df:
         file_layout = get_file_layout(df_type)
-
         match file_layout:
             case "hive_sym":
                 assert date_str is not None
