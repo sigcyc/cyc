@@ -1,13 +1,13 @@
 ---
 name: ingest_raw_dataset
 description: Ingest a raw dataset into the project's normalized parquet storage layout
-argument-hint: storage_pattern
+argument-hint: file_layout
 ---
 
 ## Inputs
 
 - `ABC` — the raw dataset directory (working directory for this skill)
-- `storage_pattern` — target layout, one of the patterns in `storage_pattern.md`
+- `file_layout` — target layout, one of the patterns in `file_layout.md`
 
 ## Steps
 
@@ -25,7 +25,7 @@ argument-hint: storage_pattern
 
 4. **Register in `cyc/files/df_types.yaml`**
    - `cyc` is the util package installed in the Python environment.
-   - Add an entry for `ABC` with: `cols`, `sym`, `time` (or `date`), `data.path`, `storage_pattern`, `calendar`.
+   - Add an entry for `ABC` with: `cols`, `sym`, `time` (or `date`), `data.path`, `file_layout`, `calendar`.
    - Do this before writing the script so the script can use `cyc.config.get_data_path("ABC")` to resolve the output directory.
 
 5. **Write a conversion script at `ABC/convert.py`**
@@ -34,7 +34,7 @@ argument-hint: storage_pattern
      - Read one raw file from `ABC_raw`.
      - Rename columns via `ABC/columns.yaml`.
      - Cast to the required output schema (see below).
-     - Write parquet files into the `storage_pattern` layout rooted at `cyc.config.get_data_path("ABC")`.
+     - Write parquet files into the `file_layout` layout rooted at `cyc.config.get_data_path("ABC")`.
    - **Output schema requirement**: every output file MUST contain:
      - `sym` — `pl.String` or `pl.UInt64`
      - At least one of (both allowed):

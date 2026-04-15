@@ -9,7 +9,7 @@ from .data_analysis import accum_ratiop, accum_ratio
 from .config import get_df_type_dict
 
 from .data_loaders import load_data, load_data_single, load_data_hive_sym
-from .config import get_storage_pattern
+from .config import get_file_layout
 from .time_util import parse_time_to_ns
 
 
@@ -49,9 +49,9 @@ class Df(_DfBase):
 
     @classmethod
     def load_data(cls, date_str: str | pl.Series, df_type: str, sym: SymType = None) -> Df:
-        storage_pattern = get_storage_pattern(df_type)
+        file_layout = get_file_layout(df_type)
 
-        if storage_pattern == "hive_sym":
+        if file_layout == "hive_sym":
             lf = cls._enrich(load_data_hive_sym(date_str, df_type, sym), df_type)
         else:
             lf = cls._enrich(load_data(date_str, df_type), df_type)

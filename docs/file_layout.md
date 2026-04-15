@@ -1,4 +1,4 @@
-# Storage Pattern
+# File Layout
 
 Normalized file layout so one API and one set of `Df` functions cover all data types — no per-dataset loaders to memorize.
 

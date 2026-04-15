@@ -23,9 +23,9 @@ def get_calendar(df_type: str) -> str:
     return config[df_type].get("calendar", config["default"].get("calendar", "nyse"))
 
 
-def get_storage_pattern(df_type: str) -> str | None:
+def get_file_layout(df_type: str) -> str | None:
     config = _load_yaml()
-    return config[df_type].get("storage_pattern")
+    return config[df_type].get("file_layout")
 
 
 def get_data_path(df_type: str) -> Path:

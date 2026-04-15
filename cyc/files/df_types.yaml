@@ -1,6 +1,6 @@
 data_dir: /Volumes/ssd
 
-# storage_pattern: omit for data_root/YYYYMMDD.parquet, "hive_sym" for data_root/sym=AAPL/YYYYMMDD.parquet
+# file_layout: omit for data_root/YYYYMMDD.parquet, "hive_sym" for data_root/sym=AAPL/YYYYMMDD.parquet
 
 default:
   cols:
@@ -48,5 +48,5 @@ crypto:
     core: [sym, time, trade_side, trade_price, trade_amt]
   time: exchange_timestamp
   calendar: crypto
-  storage_pattern: hive_sym
+  file_layout: hive_sym
 
