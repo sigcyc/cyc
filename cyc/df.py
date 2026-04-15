@@ -18,6 +18,14 @@ _DfBase = pl.DataFrame if TYPE_CHECKING else object
 P = ParamSpec("P")
 
 
+def filter_sym(lf: pl.LazyFrame, sym: SymType) -> pl.LazyFrame:
+    if sym is None:
+        return lf
+    if isinstance(sym, (str, int)):
+        return lf.filter(pl.col("sym") == sym)
+    return lf.filter(pl.col("sym").is_in(list(sym)))
+
+
 def wrap_df_func(
     func: Callable[Concatenate[pl.DataFrame, P], pl.DataFrame],
 ) -> Callable[Concatenate[Df, P], Df]:
@@ -43,24 +51,21 @@ class Df(_DfBase):
         self.df_type = df_type
 
     @classmethod
-    def load_data_single(cls, df_type: str) -> Df:
-        lf = cls._enrich(load_data_single(df_type), df_type)
-        return Df(lf.collect(), df_type)
-
-    @classmethod
-    def load_data(cls, date_str: str | pl.Series, df_type: str, sym: SymType = None) -> Df:
+    def load_data(cls, df_type: str, date_str: str | pl.Series | None = None, sym: SymType = None) -> Df:
         file_layout = get_file_layout(df_type)
 
-        if file_layout == "hive_sym":
-            lf = cls._enrich(load_data_hive_sym(date_str, df_type, sym), df_type)
-        else:
-            lf = cls._enrich(load_data(date_str, df_type), df_type)
-            if sym is not None:
-                if isinstance(sym, (str, int)):
-                    lf = lf.filter(pl.col("sym") == sym)
-                else:
-                    lf = lf.filter(pl.col("sym").is_in(list(sym)))
+        match file_layout:
+            case "hive_sym":
+                assert date_str is not None
+                lf = load_data_hive_sym(df_type, date_str, sym)
+            case "single" | "single_hive_sym":
+                lf = load_data_single(df_type)
+            case _:
+                assert date_str is not None
+                lf = load_data(df_type, date_str)
 
+        lf = cls._enrich(lf, df_type)
+        lf = filter_sym(lf, sym)
         return Df(lf.collect(), df_type)
 
     @classmethod
