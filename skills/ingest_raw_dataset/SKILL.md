@@ -7,7 +7,7 @@ argument-hint: file_layout
 ## Inputs
 
 - `ABC` — the raw dataset directory (working directory for this skill)
-- `file_layout` — target layout, one of the patterns in `file_layout.md`
+- `file_layout` — target layout, one of the patterns in `~/.claude/skills/ingest_raw_dataset/data_pipeline.md`
 
 ## Steps
 
@@ -20,19 +20,23 @@ argument-hint: file_layout
 
 3. **Survey file contents and build column mapping**
    - Read ONE representative file from `ABC_raw`.
-   - Create `ABC/columns.yaml` mapping any non-English column names to English. If it already exists, reuse it.
+   - Create `ABC/columns.yaml` mapping `raw_name: output_name`.
+   - **Which columns to include in `columns.yaml`:**
+     - Non-English columns: include (translate to English).
+     - English columns that has ` ` or `-`: include (replace ` ` and `-` by `_`).
    - Ask the user to review `ABC/columns.yaml` before proceeding. Monitor the file for edits.
 
 4. **Register in `cyc/files/df_types.yaml`**
    - `cyc` is the util package installed in the Python environment.
-   - Add an entry for `ABC` with: `cols`, `sym`, `time` (or `date`), `data.path`, `file_layout`, `calendar`.
+   - Add an entry for `ABC` with: `sym`, `time` (or `date`), `data.path`, `file_layout`.
    - Do this before writing the script so the script can use `cyc.config.get_data_path("ABC")` to resolve the output directory.
 
 5. **Write a conversion script at `ABC/convert.py`**
    - Put the script in the dataset directory (not inline / not in a notebook) so it is reproducible and version-controllable.
    - Responsibilities:
      - Read one raw file from `ABC_raw`.
-     - Rename columns via `ABC/columns.yaml`.
+     - Rename all columns in `ABC/columns.yaml`.
+     - Pass through all the other columns with names unchanged.
      - Cast to the required output schema (see below).
      - Write parquet files into the `file_layout` layout rooted at `cyc.config.get_data_path("ABC")`.
    - **Output schema requirement**: every output file MUST contain:
@@ -40,6 +44,7 @@ argument-hint: file_layout
      - At least one of (both allowed):
        - `time` — `pl.Datetime("ns")`
        - `date` — `pl.Date`
+   - **Do NOT drop any columns** from the raw file, even if they look redundant. 
 
 6. **Dry-run on a single file and verify**
    - Run `ABC/convert.py` on ONE raw file.
@@ -53,9 +58,6 @@ argument-hint: file_layout
 
 7. **Convert all data**
    - Only after step 6 is confirmed, run `ABC/convert.py` across the full date range.
-
-8. **Save the ingest recipe**
-   - Write the exact commands used (dry-run + full run) into `ABC/ingest.md` so the process is reproducible.
 
 ## Safety Rules
 

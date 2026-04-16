@@ -98,7 +98,7 @@ def _plot(
     right_axis: Optional[list[int | str]] = None,
     width=600,
     time_format=alt.Undefined,
-) -> alt.LayerChart:
+):
     """
     Use alt chart that
     1. use self.time as x-axis
@@ -112,6 +112,7 @@ def _plot(
     right_axis = right_axis or []
     left_cols = [self.columns[i] if isinstance(i, int) else i for i in left_axis]
     right_cols = [self.columns[i] if isinstance(i, int) else i for i in right_axis]
+    all_cols = left_cols + right_cols
 
     if time_format is alt.Undefined:
         min_time = self["time"].min()
@@ -137,34 +138,27 @@ def _plot(
         alt.Tooltip("series:N", title="series"),
         alt.Tooltip("value:Q", title="value"),
     ]
+    color_scale = alt.Scale(domain=all_cols, scheme="category10")
 
-    left_chart = (
-        base.transform_fold(cast(list[str | alt.FieldName], left_cols), as_=["series", "value"])
-        .mark_line()
-        .encode(
-            y=alt.Y(
-                "value:Q",
-                axis=alt.Axis(title=",".join(left_cols), orient="left"),
-                scale=alt.Scale(zero=False),
-            ),
-            color="series:N",
-            tooltip=tooltip,
+    def build(cols, orient):
+        return (
+            base.transform_fold(cast(list[str | alt.FieldName], cols), as_=["series", "value"])
+            .mark_line()
+            .encode(
+                y=alt.Y(
+                    "value:Q",
+                    axis=alt.Axis(title=",".join(cols), orient=orient),
+                    scale=alt.Scale(zero=False),
+                ),
+                color=alt.Color("series:N", scale=color_scale),
+                tooltip=tooltip,
+            )
         )
-    )
-    right_chart = (
-        base.transform_fold(cast(list[str | alt.FieldName], right_cols), as_=["series", "value"])
-        .mark_line()
-        .encode(
-            y=alt.Y(
-                "value:Q",
-                axis=alt.Axis(title=",".join(right_cols), orient="right"),
-                scale=alt.Scale(zero=False),
-            ),
-            color="series:N",
-            tooltip=tooltip,
-        )
-    )
 
+    left_chart = build(left_cols, "left")
+    if not right_cols:
+        return left_chart
+    right_chart = build(right_cols, "right")
     return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
 
 

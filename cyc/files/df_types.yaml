@@ -47,3 +47,11 @@ crypto:
   time: exchange_timestamp
   calendar: crypto
   file_layout: hive_sym
+
+a_futures:
+  cols:
+    core: [sym, date, close]
+  sym: sym
+  date: date
+  file_layout: single_hive_sym
+
