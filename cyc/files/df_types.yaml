@@ -47,4 +47,3 @@ crypto:
   time: exchange_timestamp
   calendar: crypto
   file_layout: hive_sym
-

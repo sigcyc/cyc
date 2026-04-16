@@ -43,13 +43,13 @@ argument-hint: file_layout
 
 6. **Dry-run on a single file and verify**
    - Run `ABC/convert.py` on ONE raw file.
-   - Verify via the project loader (do not just inspect the parquet directly):
+   - Verify via the project loader (do not just inspect the parquet directly). You MUST run this exact snippet via `python -c` (or equivalent) and paste the real stdout into chat — do NOT substitute `print(df)`, `df.df`, or any other rendering, and do NOT paraphrase the output. `_A` is a side-effecting pretty-printer; its output is the artifact the user reviews:
      ```python
      from cyc import Df
      df = Df.load_data("ABC", <date>)
-     df.head(10)._A   # sanity check
+     df.head(10)._A   # sanity check — prints to stdout
      ```
-   - Show the output to the user and WAIT for explicit confirmation before proceeding.
+   - Show the raw stdout to the user and WAIT for explicit confirmation before proceeding.
 
 7. **Convert all data**
    - Only after step 6 is confirmed, run `ABC/convert.py` across the full date range.

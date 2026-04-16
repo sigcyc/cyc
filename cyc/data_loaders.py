@@ -9,7 +9,7 @@ def _get_date_list(df_type: str, date_str: str | pl.Series) -> list[str]:
     return parse_dates(date_str, get_calendar(df_type))
 
 def load_data_single(df_type: str) -> pl.LazyFrame:
-    return pl.scan_parquet(get_data_path(df_type) / df_type, hive_partitioning=True)
+    return pl.scan_parquet(get_data_path(df_type) / df_type / "**/*.parquet", hive_partitioning=True)
 
 def load_data(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
     date_list = _get_date_list(df_type, date_str)
