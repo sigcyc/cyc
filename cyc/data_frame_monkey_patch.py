@@ -1,10 +1,11 @@
-from typing import Optional, cast
+from typing import Optional
 import shutil
 import numpy as np
 import polars as pl
 import altair as alt
 from numba import njit
 from .marble import marble
+from .gui import PlotSpec
 
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
@@ -96,70 +97,22 @@ def _plot(
     self,
     left_axis: list[int | str],
     right_axis: Optional[list[int | str]] = None,
-    width=600,
-    time_format=alt.Undefined,
-):
+    width: int = 600,
+) -> PlotSpec:
     """
-    Use alt chart that
-    1. use self.time as x-axis
-    2. Plot the columns in left_axis on the left y-axis
-    3. Plot the columns in right-axis on the right y-axis
+    Plot columns on the left/right y-axes against `self.time`.
+
+    Returns a PlotSpec that renders as an altair chart in notebooks and supports
+    `+` to combine sources with shared left/right y-scales and color cycling.
 
     Args:
-        left_axis: list of column index or name to plot on the left y-axis
-        right_axis: list of column index or name to plot on the right y-axis
+        left_axis: column index or name to plot on the left y-axis
+        right_axis: column index or name to plot on the right y-axis
     """
     right_axis = right_axis or []
     left_cols = [self.columns[i] if isinstance(i, int) else i for i in left_axis]
     right_cols = [self.columns[i] if isinstance(i, int) else i for i in right_axis]
-    all_cols = left_cols + right_cols
-
-    if time_format is alt.Undefined:
-        min_time = self["time"].min()
-        max_time = self["time"].max()
-        if min_time.date() != max_time.date():
-            time_format = "%Y%m%d"
-        else:
-            time_format = "%H:%M:%S"
-
-    # VegaFusion interprets naive datetimes in local_tz by default.
-    # Using the default local scale means local-in/local-out cancel, preserving face values.
-    df = self.with_columns(pl.col("time").dt.replace_time_zone(None))
-    if len(df) > 10_000:
-        df = df.sample(10_000).sort("time")
-    base = (
-        alt.Chart(df)
-        .encode(x=alt.X(f"time:T", axis=alt.Axis(format=time_format, labelAngle=-45)))
-        .properties(width=width)
-    )
-
-    tooltip = [
-        alt.Tooltip(f"time:T", title="time"),
-        alt.Tooltip("series:N", title="series"),
-        alt.Tooltip("value:Q", title="value"),
-    ]
-    color_scale = alt.Scale(domain=all_cols, scheme="category10")
-
-    def build(cols, orient):
-        return (
-            base.transform_fold(cast(list[str | alt.FieldName], cols), as_=["series", "value"])
-            .mark_line()
-            .encode(
-                y=alt.Y(
-                    "value:Q",
-                    axis=alt.Axis(title=",".join(cols), orient=orient),
-                    scale=alt.Scale(zero=False),
-                ),
-                color=alt.Color("series:N", scale=color_scale),
-                tooltip=tooltip,
-            )
-        )
-
-    left_chart = build(left_cols, "left")
-    if not right_cols:
-        return left_chart
-    right_chart = build(right_cols, "right")
-    return (left_chart + right_chart).resolve_scale(y="independent", color="shared")
+    return PlotSpec([(self, left_cols, right_cols)], width=width)
 
 
 def _to_df(df: pl.DataFrame, df_type="default"):
