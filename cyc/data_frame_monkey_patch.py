@@ -10,7 +10,7 @@ from .gui import PlotSpec
 FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(FLOAT_PRECISION)
-pl.Config.set_tbl_cols(20)
+pl.Config.set_tbl_cols(10)
 alt.data_transformers.enable("vegafusion")
 try:
     get_ipython()  # type: ignore
