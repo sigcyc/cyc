@@ -67,5 +67,5 @@ class PlotSpec:
 
 When multiple sources are combined, column names can collide (`df1` and `df2` both have `"price"`). Disambiguation rule:
 - single source → no prefix (current behavior preserved)
-- multi-source, each df has a single unique `sym` → prefix with that sym (`"TSLA:price"`)
-- otherwise → prefix with source index (`"#0:price"`)
+- multi-source, each df has a single unique `sym` → prefix with that sym (`"TSLA_price"`)
+- otherwise → prefix with source index (`"#0_price"`)

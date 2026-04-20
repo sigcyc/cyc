@@ -76,8 +76,13 @@ class TestPlotSpec:
         assert domain == ["a", "b"]
 
     def test_single_source_left_only_skips_right_layer(self):
-        chart = self._make_df().p(["a"])._build()
-        assert not isinstance(chart, alt.LayerChart)
+        d = self._make_df().p(["a"])._build().to_dict()
+        # Single-source, left-only: one line layer + the crosshair rule.
+        # No right-axis line layer, no dual-axis resolve.
+        assert len(d["layer"]) == 2
+        assert "resolve" not in d
+        orients = [lyr.get("encoding", {}).get("y", {}).get("axis", {}).get("orient") for lyr in d["layer"]]
+        assert "right" not in orients
 
     def test_add_merges_sources(self):
         a = self._make_df("TSLA").p(["a"], ["b"])
@@ -91,14 +96,14 @@ class TestPlotSpec:
         b = self._make_df("UBER").p(["a"], ["b"])
         d = (a + b)._build().to_dict()
         domain = d["layer"][0]["encoding"]["color"]["scale"]["domain"]
-        assert domain == ["TSLA:a", "TSLA:b", "UBER:a", "UBER:b"]
+        assert domain == ["TSLA_a", "TSLA_b", "UBER_a", "UBER_b"]
 
     def test_combined_falls_back_to_index_when_syms_collide(self):
         a = self._make_df("TSLA").p(["a"], ["b"])
         b = self._make_df("TSLA").p(["a"], ["b"])
         d = (a + b)._build().to_dict()
         domain = d["layer"][0]["encoding"]["color"]["scale"]["domain"]
-        assert domain == ["#0:a", "#0:b", "#1:a", "#1:b"]
+        assert domain == ["#0_a", "#0_b", "#1_a", "#1_b"]
 
     def test_combined_resolves_left_and_right_independently(self):
         a = self._make_df("TSLA").p(["a"], ["b"])
@@ -111,12 +116,12 @@ class TestPlotSpec:
         a = self._make_df("TSLA").p(["a"], ["b"])
         b = self._make_df("UBER").p(["a"], ["b"])
         d = (a + b)._build().to_dict()
-        left, right = d["layer"]
+        left, right, _crosshair = d["layer"]
         assert left["encoding"]["y"]["axis"]["orient"] == "left"
         assert right["encoding"]["y"]["axis"]["orient"] == "right"
-        # both TSLA:a and UBER:a live on the same layer → same y-scale
-        assert left["encoding"]["y"]["axis"]["title"] == "TSLA:a,UBER:a"
-        assert right["encoding"]["y"]["axis"]["title"] == "TSLA:b,UBER:b"
+        # both TSLA_a and UBER_a live on the same layer → same y-scale
+        assert left["encoding"]["y"]["axis"]["title"] == "TSLA_a,UBER_a"
+        assert right["encoding"]["y"]["axis"]["title"] == "TSLA_b,UBER_b"
 
     def test_combined_layer_data_split_by_side(self):
         a = self._make_df("TSLA", n=3).p(["a"], ["b"])
@@ -127,11 +132,21 @@ class TestPlotSpec:
         right_name = d["layer"][1]["data"]["name"]
         left_series = {r["series"] for r in datasets[left_name]}
         right_series = {r["series"] for r in datasets[right_name]}
-        assert left_series == {"TSLA:a", "UBER:a"}
-        assert right_series == {"TSLA:b", "UBER:b"}
+        assert left_series == {"TSLA_a", "UBER_a"}
+        assert right_series == {"TSLA_b", "UBER_b"}
         # 2 sources × 1 col per side × 3 rows
         assert len(datasets[left_name]) == 6
         assert len(datasets[right_name]) == 6
+
+    def test_crosshair_rule_has_tooltip_for_every_series(self):
+        a = self._make_df("TSLA").p(["a"], ["b"])
+        b = self._make_df("UBER").p(["a"], ["b"])
+        d = (a + b)._build().to_dict()
+        crosshair = d["layer"][-1]
+        assert crosshair["mark"]["type"] == "rule"
+        fields = [t["field"] for t in crosshair["encoding"]["tooltip"]]
+        # time first, then one row per series
+        assert fields == ["time", "TSLA_a", "TSLA_b", "UBER_a", "UBER_b"]
 
     def test_delegates_altair_methods_via_getattr(self):
         spec = self._make_df().p(["a"], ["b"])

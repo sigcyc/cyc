@@ -39,28 +39,31 @@ class PlotSpec:
             if len(df) > 10_000:
                 df = df.sample(10_000).sort("time")
             for col in lcs:
-                name = f"{label}:{col}" if label else col
+                name = f"{label}_{col}" if label else col
                 series.append(name)
                 left.append(_stack(df, col, name))
             for col in rcs:
-                name = f"{label}:{col}" if label else col
+                name = f"{label}_{col}" if label else col
                 series.append(name)
                 right.append(_stack(df, col, name))
 
         color = alt.Scale(domain=series, scheme="category10")
         time_format = self._resolve_time_format(left + right)
-        # One altair layer per side, each fed pre-filtered data. 
+        # One altair layer per side, each fed pre-filtered data.
         sides: list[tuple[list[pl.DataFrame], Literal["left", "right"]]] = [(left, "left"), (right, "right")]
         layers = [
             self._layer(pl.concat(parts), orient, time_format, color)
             for parts, orient in sides
             if parts
         ]
+        crosshair = self._crosshair(pl.concat(left + right), series, time_format)
         if len(layers) == 1:
-            return layers[0]
+            return layers[0] + crosshair
         # y=independent gives left and right their own scales (dual-axis);
         # color=shared keeps one legend and one color cycle across both layers.
-        return (layers[0] + layers[1]).resolve_scale(y="independent", color="shared")
+        # The crosshair rule has no y encoding, so independent y on the line
+        # layers doesn't distort it.
+        return (layers[0] + layers[1] + crosshair).resolve_scale(y="independent", color="shared")
 
     def _resolve_time_format(self, parts: list[pl.DataFrame]) -> str:
         t = pl.concat([p["time"] for p in parts])
@@ -89,6 +92,29 @@ class PlotSpec:
                 ],
             )
             .properties(width=self.width)
+        )
+
+    def _crosshair(self, data: pl.DataFrame, series: list[str], time_format: str) -> alt.Chart:
+        """Dashed vertical guide that reveals every series' value at the cursor.
+
+        Pivot in polars (not Vega's `transform_pivot` — VegaFusion fails to
+        downcast the pivot column). One row per time, one column per series,
+        so the tooltip reads all values straight from the hovered row.
+        """
+        wide = data.pivot(values="value", index="time", on="series").sort("time")
+        hover = alt.selection_point(
+            nearest=True, on="pointerover", fields=["time"], empty=False, clear="pointerout"
+        )
+        return (
+            alt.Chart(wide)
+            .mark_rule(color="gray", strokeDash=[3, 3])
+            .encode(
+                x="time:T",
+                opacity=alt.when(hover).then(alt.value(0.5)).otherwise(alt.value(0)),
+                tooltip=[alt.Tooltip("time:T", title="time", format=time_format)]
+                + [alt.Tooltip(f"{s}:Q", title=s) for s in series],
+            )
+            .add_params(hover)
         )
 
     def _repr_mimebundle_(self, include=None, exclude=None):
@@ -120,7 +146,7 @@ def _derive_labels(sources: list[Source]) -> list[str]:
     """Per-source disambiguation prefix; empty string means no prefix.
 
     Strategy: if a source has a single unique sym we prefer that (readable legend
-    like "TSLA:price"); otherwise we fall back to the source index. If sym-based
+    like "TSLA_price"); otherwise we fall back to the source index. If sym-based
     labels aren't unique across sources (e.g. two TSLA frames) we go all-index,
     since half-labeled legends would be more confusing than uniformly indexed.
     """
