@@ -7,9 +7,8 @@ from numba import njit
 from .marble import marble
 from .gui import PlotSpec
 
-FLOAT_PRECISION = 2
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
-pl.Config.set_float_precision(FLOAT_PRECISION)
+pl.Config.set_float_precision(2)
 pl.Config.set_tbl_cols(10)
 alt.data_transformers.enable("vegafusion")
 try:
@@ -35,9 +34,10 @@ def _print_transpose(df: pl.DataFrame) -> None:
         print(repr(df.head(3).transpose(include_header=True)))
 
 
-def _estimate_col_widths(df: pl.DataFrame, float_precision: int, fmt_str_lengths: int) -> list[int]:
+def _estimate_col_widths(df: pl.DataFrame, fmt_str_lengths: int) -> list[int]:
     """Estimate display width of each column by sampling rows."""
     PADDING = 2
+    float_precision = pl.Config.state(if_set=True).get("set_float_precision")
     sample = pl.concat([df.head(10), df.tail(10)]) if len(df) > 20 else df
     widths = []
     for col in sample.columns:
@@ -54,17 +54,14 @@ def _estimate_col_widths(df: pl.DataFrame, float_precision: int, fmt_str_lengths
     return widths
 
 
-def _print_all(
-    df: pl.DataFrame,
-    float_precision: Optional[int] = FLOAT_PRECISION,
-    fmt_str_lengths: Optional[int] = 100,
-) -> None:
+def _print_all(df: pl.DataFrame) -> None:
     """Print the entire DataFrame, grouping columns by estimated width to fit terminal."""
     terminal_width = get_terminal_size()
     if len(df) > 10000:
         raise ValueError("more than 10k rows")
     df = df.with_columns(pl.col(pl.Datetime).dt.replace_time_zone(None))
-    col_widths = _estimate_col_widths(df, float_precision or FLOAT_PRECISION, fmt_str_lengths or 100)
+    fmt_str_lengths = 100
+    col_widths = _estimate_col_widths(df, fmt_str_lengths)
 
     groups: list[list[str]] = []
     start = 0
@@ -84,7 +81,6 @@ def _print_all(
         tbl_rows=-1,
         tbl_cols=-1,
         tbl_width_chars=terminal_width,
-        float_precision=float_precision,
         fmt_str_lengths=fmt_str_lengths,
     ):
         for i, cols in enumerate(groups):
