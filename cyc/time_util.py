@@ -6,7 +6,12 @@ from functools import lru_cache
 import exchange_calendars as xcals
 import polars as pl
 
-_NYSE = xcals.get_calendar("XNYS")
+_CALENDAR_CODES = {"nyse": "XNYS", "sse": "XSHG"}
+
+
+@lru_cache(maxsize=None)
+def _exchange_calendar(name: str):
+    return xcals.get_calendar(_CALENDAR_CODES[name])
 
 
 def parse_time_to_ns(raw: str) -> int:
@@ -107,4 +112,4 @@ def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
 def _is_trading_day(day: _date, calendar: str = "nyse") -> bool:
     if calendar == "crypto":
         return True
-    return _NYSE.is_session(day)
+    return _exchange_calendar(calendar).is_session(day)

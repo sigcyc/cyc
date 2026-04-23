@@ -55,3 +55,10 @@ a_futures:
   date: date
   file_layout: single_hive_sym
 
+a_futures_instrument:
+  cols:
+    core: [sym, date, close]
+  sym: sym
+  date: date
+  calendar: sse
+
