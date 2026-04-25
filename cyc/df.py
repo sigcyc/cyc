@@ -140,7 +140,7 @@ class Df(_DfBase):
             date: "20250102"
         """
         df = self.df
-        col_list = ["sym", "time"]
+        col_list = [c for c in ["sym", "time"] if c in df.columns]
         col_list_cumsum = []
 
         df_type_dict = get_df_type_dict(self.df_type)
@@ -166,23 +166,30 @@ class Df(_DfBase):
         )
         df = df.with_columns([pl.col(name).cum_sum() for name in col_list_cumsum])
 
-        filters = [filter_sym(sym)]
+        filters = []
+        if "sym" in df.columns:
+            filters.append(filter_sym(sym))
 
-        time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
-        if time_start is not None:
-            filters.append(time_since_midnight >= pl.duration(nanoseconds=parse_time_to_ns(time_start)))
-        if time_end is not None:
-            filters.append(time_since_midnight <= pl.duration(nanoseconds=parse_time_to_ns(time_end)))
+        if "time" in df.columns:
+            time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")
+            if time_start is not None:
+                filters.append(time_since_midnight >= pl.duration(nanoseconds=parse_time_to_ns(time_start)))
+            if time_end is not None:
+                filters.append(time_since_midnight <= pl.duration(nanoseconds=parse_time_to_ns(time_end)))
 
         if date is not None:
+            if "date" in df.columns:
+                date_expr = pl.col('date')
+            else:
+                date_expr = pl.col("time").dt.date()
             if "-" in date:
                 start_str, end_str = date.split("-", 1)
                 start_date = datetime.strptime(start_str.strip(), "%Y%m%d").date()
                 end_date = datetime.strptime(end_str.strip(), "%Y%m%d").date()
-                filters.append((pl.col("time").dt.date() >= start_date) & (pl.col("time").dt.date() <= end_date))
+                filters.append((date_expr >= start_date) & (date_expr <= end_date))
             else:
                 date_value = datetime.strptime(date, "%Y%m%d").date()
-                filters.append(pl.col("time").dt.date() == date_value)
+                filters.append(date_expr == date_value)
 
         df = df.filter(f, *filters)
         if sample is not None:
