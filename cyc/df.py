@@ -1,6 +1,7 @@
 from __future__ import annotations
 import functools
 from datetime import datetime
+from itertools import zip_longest
 from typing import Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 from .types import SymType
 import polars as pl
@@ -24,6 +25,15 @@ def filter_sym(sym: SymType) -> pl.Expr:
     syms = [sym] if isinstance(sym, (str, int)) else list(sym)
     return pl.col("sym").is_in(syms)
 
+def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
+    if isinstance(df1, Df):
+        df1 = df1.df
+    if isinstance(df2, Df):
+        df2 = df2.df
+    df1 = df1.rename({c: f"{c}_x" for c in df1.columns})
+    df2 = df2.rename({c: f"{c}_y" for c in df2.columns})
+    interleaved = [c for pair in zip_longest(df1.columns, df2.columns) for c in pair if c is not None]
+    return pl.concat([df1, df2], how="horizontal").select(interleaved)
 
 def wrap_df_func(
     func: Callable[Concatenate[pl.DataFrame, P], pl.DataFrame],

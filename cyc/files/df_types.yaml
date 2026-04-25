@@ -53,6 +53,13 @@ a_futures:
     core: [sym, date, close]
   sym: sym
   date: date
+  file_layout: single
+
+a_futures_all:
+  cols:
+    core: [sym, date, close]
+  sym: sym
+  date: date
   file_layout: single_hive_sym
 
 a_futures_instrument:
