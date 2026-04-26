@@ -89,6 +89,10 @@ def _print_all(df: pl.DataFrame) -> None:
                 print()
 
 
+def _des(df: pl.DataFrame) -> pl.DataFrame:
+    return df.describe(percentiles=(0.01, 0.10, 0.25, 0.50, 0.75, 0.90, 0.99))
+
+
 def _plot(
     self,
     left_axis: list[int | str],
@@ -153,6 +157,7 @@ class Cyc:
 
 setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
+setattr(pl.DataFrame, "des", property(_des))
 setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "to_df", _to_df)
 setattr(pl.DataFrame, "marble", marble)
