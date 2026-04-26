@@ -121,9 +121,10 @@ def _to_df(df: pl.DataFrame, df_type="default"):
 
     return Df(df, df_type).enrich()
 
+
 def _sort_cut(df: pl.DataFrame, cut_name):
     try:
-        return df.unnest(cut_name).sort('breakpoint').drop('breakpoint')
+        return df.unnest(cut_name).sort("breakpoint").drop("breakpoint").rename({"category": cut_name})
     except Exception:
         raise ValueError(f"{cut_name!r}: pass include_breaks=True to pl.cut")
 
@@ -160,6 +161,10 @@ class Cyc:
         return pl.struct([self._value, time]).map_batches(
             lambda s: _ewm_sum(s.struct[0].to_numpy(), s.struct[1].dt.timestamp().to_numpy(), alpha)
         )
+
+    def cut(self, breaks, **kwargs):
+        name = self._value.meta.output_name()
+        return self._value.cut(breaks, include_breaks=True, **kwargs).alias(f"{name}_cut")
 
 
 setattr(pl.DataFrame, "_T", property(_print_transpose))
