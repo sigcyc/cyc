@@ -95,13 +95,13 @@ def _des(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _plot(
-    self,
+    df: pl.DataFrame,
     left_axis: list[int | str],
     right_axis: Optional[list[int | str]] = None,
     width: int = 600,
 ) -> PlotSpec:
     """
-    Plot columns on the left/right y-axes against `self.time`.
+    Plot columns on the left/right y-axes against `df.time`.
 
     Returns a PlotSpec that renders as an altair chart in notebooks and supports
     `+` to combine sources with shared left/right y-scales and color cycling.
@@ -111,15 +111,21 @@ def _plot(
         right_axis: column index or name to plot on the right y-axis
     """
     right_axis = right_axis or []
-    left_cols = [self.columns[i] if isinstance(i, int) else i for i in left_axis]
-    right_cols = [self.columns[i] if isinstance(i, int) else i for i in right_axis]
-    return PlotSpec([(self, left_cols, right_cols)], width=width)
+    left_cols = [df.columns[i] if isinstance(i, int) else i for i in left_axis]
+    right_cols = [df.columns[i] if isinstance(i, int) else i for i in right_axis]
+    return PlotSpec([(df, left_cols, right_cols)], width=width)
 
 
 def _to_df(df: pl.DataFrame, df_type="default"):
     from .df import Df
 
     return Df(df, df_type).enrich()
+
+def _sort_cut(df: pl.DataFrame, cut_name):
+    try:
+        return df.unnest(cut_name).sort('breakpoint').drop('breakpoint')
+    except Exception:
+        raise ValueError(f"{cut_name!r}: pass include_breaks=True to pl.cut")
 
 
 @njit(cache=True)
@@ -162,3 +168,4 @@ setattr(pl.DataFrame, "des", _des)
 setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "to_df", _to_df)
 setattr(pl.DataFrame, "marble", marble)
+setattr(pl.DataFrame, "sort_cut", _sort_cut)
