@@ -10,6 +10,7 @@ from .gui import PlotSpec
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(2)
 pl.Config.set_tbl_cols(10)
+pl.Config.set_tbl_rows(15)
 alt.data_transformers.enable("vegafusion")
 try:
     get_ipython()  # type: ignore
@@ -157,7 +158,7 @@ class Cyc:
 
 setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
-setattr(pl.DataFrame, "des", property(_des))
+setattr(pl.DataFrame, "des", _des)
 setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "to_df", _to_df)
 setattr(pl.DataFrame, "marble", marble)

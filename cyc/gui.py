@@ -204,7 +204,7 @@ def gs(x: pl.Series, y: pl.Series, k: int = 10, filter=None) -> alt.LayerChart:
         )
     )
 
-    x_min, x_max = df["x"].min(), df["x"].max()
+    x_min, x_max = bucketed["x"].min(), bucketed["x"].max()
     line_df = pl.DataFrame(
         {
             "x": [x_min, x_max],
