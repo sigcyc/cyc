@@ -101,7 +101,7 @@ class PlotSpec:
         downcast the pivot column). One row per time, one column per series,
         so the tooltip reads all values straight from the hovered row.
         """
-        wide = data.pivot(values="value", index="time", on="series").sort("time")
+        wide = data.pivot(values="value", index="time", on="series", aggregate_function="last").sort("time")
         hover = alt.selection_point(
             nearest=True, on="pointerover", fields=["time"], empty=False, clear="pointerout"
         )
