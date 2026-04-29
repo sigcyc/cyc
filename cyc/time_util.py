@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date as _date, datetime, timedelta
+from datetime import date as Date, datetime, timedelta
 from functools import lru_cache
 
 import exchange_calendars as xcals
@@ -89,7 +89,7 @@ def parse_dates(date: str, calendar: str = "nyse") -> list[str]:
 def previous_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
     """Given date, calculate the previous trading day."""
 
-    def _prev(d: _date) -> _date:
+    def _prev(d: Date) -> Date:
         d -= timedelta(days=1)
         while not _is_trading_day(d, calendar):
             d -= timedelta(days=1)
@@ -100,7 +100,7 @@ def previous_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
 
 def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
     """Given date, calculate the next trading day."""
-    def _next(d: _date) -> _date:
+    def _next(d: Date) -> Date:
         d += timedelta(days=1)
         while not _is_trading_day(d, calendar):
             d += timedelta(days=1)
@@ -109,7 +109,26 @@ def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
 
 
 @lru_cache(maxsize=1024)
-def _is_trading_day(day: _date, calendar: str = "nyse") -> bool:
+def _is_trading_day(day: Date, calendar: str = "nyse") -> bool:
     if calendar == "crypto":
         return True
     return _exchange_calendar(calendar).is_session(day)
+
+
+@lru_cache(maxsize=1024)
+def _next_standard_expiration(date: Date, calendar: str = "nyse") -> Date:
+    year, month = date.year, date.month
+    step = timedelta(days=-1 if calendar == "nyse" else 1)
+    while True:
+        first = Date(year, month, 1)
+        d = first + timedelta(days=(4 - first.weekday()) % 7 + 14)
+        while not _is_trading_day(d, calendar):
+            d += step
+        # if third Friday is before date, go to next month
+        if d >= date:
+            return d
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+def next_standard_expiration(date: pl.Series, calendar: str = "nyse") -> pl.Series:
+    mapping = {d: _next_standard_expiration(d, calendar) for d in date.unique()}
+    return date.replace_strict(mapping, return_dtype=pl.Date)
