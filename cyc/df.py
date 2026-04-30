@@ -217,6 +217,8 @@ class Df(_DfBase):
 
             @functools.wraps(attr)
             def wrapper(*args, **kwargs):
+                args = tuple(a.df if isinstance(a, Df) else a for a in args)
+                kwargs = {k: v.df if isinstance(v, Df) else v for k, v in kwargs.items()}
                 result = attr(*args, **kwargs)
                 if isinstance(result, pl.DataFrame):
                     return Df(result, self.df_type)
