@@ -1,6 +1,9 @@
 from __future__ import annotations
-from typing import Literal, Optional, Sequence, overload
+from typing import Literal, Optional, Sequence, TYPE_CHECKING, overload
 import polars as pl
+
+if TYPE_CHECKING:
+    from .df import Df
 
 
 class Joiner:
@@ -64,10 +67,14 @@ class Joiner:
         return cls(left_df.join(right_df, on=key_cols, how="left", maintain_order="left")["_idx"], right_len)
 
     @overload
+    def get(self, item: Df) -> Df: ...
+    @overload
     def get(self, item: pl.Series) -> pl.Series: ...
     @overload
     def get(self, item: pl.DataFrame) -> pl.DataFrame: ...
-    def get(self, item: pl.Series | pl.DataFrame) -> pl.Series | pl.DataFrame:
+    def get(self, item):
+        if hasattr(item, "df_type"): # Df handling 
+            return type(item)(self.get(item.df), item.df_type)
         item_len = len(item)
         if item_len != self._right_len:
             raise ValueError(f"item length {item_len} != right_on length {self._right_len}")
