@@ -10,8 +10,8 @@ def _load_yaml() -> dict:
         return yaml.safe_load(file) or {}
 
 
-def get_data_dir() -> str:
-    return _load_yaml()["data_dir"]
+def get_data_dir() -> Path:
+    return Path(_load_yaml()["data_dir"]).expanduser()
 
 
 def get_df_type_dict(df_type: str) -> DfType:
