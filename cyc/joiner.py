@@ -3,7 +3,7 @@ from typing import Optional, Sequence, overload
 import polars as pl
 
 
-class MergeHelper:
+class Joiner:
     _idx: pl.Series
     _right_len: int
 
@@ -11,13 +11,13 @@ class MergeHelper:
         self._idx = idx
         self._right_len = right_len
     @classmethod
-    def merge(
+    def join_asof(
         cls,
         left_on: pl.Series,
         right_on: pl.Series,
         by_left: Optional[pl.Series | Sequence[pl.Series]] = None,
         by_right: Optional[pl.Series | Sequence[pl.Series]] = None,
-    ) -> "MergeHelper":
+    ) -> "Joiner":
         """
         Perform join_asof and return indices for gathering from right series.
         """
