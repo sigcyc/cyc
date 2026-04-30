@@ -1,32 +1,9 @@
 from __future__ import annotations
 
-import numpy as np
 import polars as pl
-from numba import njit
 
 from .time_util import next_trading_day, previous_trading_day
 from .data_loaders import load_data
-
-
-@njit(cache=True)
-def _ewm_sum(t, v, c):
-    r, s = np.empty(len(v)), 0.
-    for i in range(len(v)):
-        if i: s *= np.exp((t[i-1] - t[i]) * c)
-        r[i] = s = s + v[i]
-    return r
-
-
-@pl.api.register_expr_namespace("ewm")
-class Ewm:
-    def __init__(self, e): self._e = e
-
-    def sum(self, times: pl.Expr, half_life_ns: int) -> pl.Expr:
-        c = 0.6931471805599453 / half_life_ns
-        return pl.struct([self._e, times]).map_batches(lambda s: pl.Series(
-            _ewm_sum(s.struct[1].cast(pl.Int64).to_numpy(),
-                     s.struct[0].to_numpy().astype(np.float64), c)))
-
 
 def add_stock(self: pl.DataFrame, fields: str | list[str], sym: str = 'sym') -> pl.DataFrame:
     """

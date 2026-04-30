@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Sequence, overload
+from typing import Literal, Optional, Sequence, overload
 import polars as pl
 
 
@@ -10,6 +10,7 @@ class Joiner:
     def __init__(self, idx, right_len: int) -> None:
         self._idx = idx
         self._right_len = right_len
+
     @classmethod
     def join_asof(
         cls,
@@ -37,6 +38,30 @@ class Joiner:
             **{c: s for c, s in zip(by_cols, by_right or [])},
         })
         return cls(left_df.join_asof(right_df, on="_key", by=by_cols or None)["_idx"], len(right_on))
+
+    @classmethod
+    def join(
+        cls,
+        left_on: pl.Series | Sequence[pl.Series],
+        right_on: pl.Series | Sequence[pl.Series],
+        how: Literal["first", "last"] = "last",
+    ) -> "Joiner":
+        """
+        Left join on key(s), keeping the first/last right match per key.
+        Output always has len(left_on) rows; unmatched rows produce null indices.
+        """
+        if isinstance(left_on, pl.Series):
+            left_on = [left_on]
+        if isinstance(right_on, pl.Series):
+            right_on = [right_on]
+        key_cols = [f"_key_{i}" for i in range(len(left_on))]
+        right_len = len(right_on[0])
+        left_df = pl.DataFrame({c: s for c, s in zip(key_cols, left_on)})
+        right_df = pl.DataFrame({
+            **{c: s for c, s in zip(key_cols, right_on)},
+            "_idx": pl.arange(0, right_len, eager=True),
+        }).unique(subset=key_cols, keep=how, maintain_order=True)
+        return cls(left_df.join(right_df, on=key_cols, how="left", maintain_order="left")["_idx"], right_len)
 
     @overload
     def get(self, item: pl.Series) -> pl.Series: ...

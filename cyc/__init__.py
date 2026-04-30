@@ -6,5 +6,6 @@ from . import data_frame_monkey_patch
 from .df import Df, concat_df2
 from .data_loaders import load_data
 from .config import get_data_dir
+from .joiner import Joiner
 
-__all__ = ["Df", "load_data", "get_data_dir", "pl", "col", "concat_df2"]
+__all__ = ["Df", "load_data", "get_data_dir", "pl", "col", "concat_df2", "Joiner"]
