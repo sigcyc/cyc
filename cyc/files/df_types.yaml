@@ -71,9 +71,10 @@ a_futures_instrument:
 
 a_futures_study:
   cols:
-    core: [sym, date, spread]
+    core: [sym, date, close, spread]
   sym: sym
   date: date
   calendar: sse
+  file_layout: single
 
 
