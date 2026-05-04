@@ -47,7 +47,7 @@ class PlotSpec:
                 series.append(name)
                 right.append(_stack(df, col, name))
 
-        color = alt.Scale(domain=series, scheme="category10")
+        color = alt.Scale(domain=series, scheme="tableau20")
         time_format = self._resolve_time_format(left + right)
         # One altair layer per side, each fed pre-filtered data.
         sides: list[tuple[list[pl.DataFrame], Literal["left", "right"]]] = [(left, "left"), (right, "right")]
@@ -72,7 +72,7 @@ class PlotSpec:
         return "%Y%m%d" if tmin.date() != tmax.date() else "%H:%M:%S"
 
     def _layer(self, data: pl.DataFrame, orient: Literal["left", "right"], time_format: str, color: alt.Scale) -> alt.Chart:
-        titles = data["series"].unique(maintain_order=True).to_list()
+        title = ",".join(data["series"].unique(maintain_order=True).to_list())[:100]
         return (
             alt.Chart(data)
             .mark_line()
@@ -80,7 +80,7 @@ class PlotSpec:
                 x=alt.X("time:T", axis=alt.Axis(format=time_format, labelAngle=-45)),
                 y=alt.Y(
                     "value:Q",
-                    axis=alt.Axis(title=",".join(titles), orient=orient),
+                    axis=alt.Axis(title=title, orient=orient),
                     # zero=False: price series never touch 0, so forcing it wastes axis range.
                     scale=alt.Scale(zero=False),
                 ),
