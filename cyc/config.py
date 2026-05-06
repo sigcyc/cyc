@@ -10,6 +10,10 @@ def _load_yaml() -> dict:
         return yaml.safe_load(file) or {}
 
 
+def _parent(df_type: str) -> str:
+    return df_type.split("__", 1)[0]
+
+
 def get_data_dir() -> Path:
     return Path(_load_yaml()["data_dir"]).expanduser()
 
@@ -20,15 +24,20 @@ def get_df_type_dict(df_type: str) -> DfType:
 
 def get_calendar(df_type: str) -> str:
     config = _load_yaml()
-    return config[df_type].get("calendar", config["default"].get("calendar", "nyse"))
+    return config[_parent(df_type)].get("calendar", config["default"].get("calendar", "nyse"))
 
 
 def get_file_layout(df_type: str) -> str | None:
     config = _load_yaml()
-    return config[df_type].get("file_layout")
+    return config[_parent(df_type)].get("file_layout")
 
 
 def get_data_path(df_type: str) -> Path:
+    """Directory containing the parquet files (or partition dirs) for df_type.
+
+    For a sidecar `parent__name`, returns `<data_path>/parent/name`.
+    """
     config = _load_yaml()
-    data_path = (config[df_type].get("data") or {}).get("path", config["data_dir"])
-    return Path(data_path).expanduser()
+    parent = _parent(df_type)
+    base = (config[parent].get("data") or {}).get("path", config["data_dir"])
+    return Path(base).expanduser() / df_type.replace("__", "/")

@@ -10,14 +10,14 @@ def _get_date_list(df_type: str, date_str: str | pl.Series) -> list[str]:
 
 def load_data_single(df_type: str) -> pl.LazyFrame:
     return pl.scan_parquet(
-        get_data_path(df_type) / df_type / "**/*.parquet",
+        get_data_path(df_type) / "**/*.parquet",
         hive_partitioning=True,
         missing_columns="insert",
     )
 
 def load_data(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
     date_list = _get_date_list(df_type, date_str)
-    data_root = get_data_path(df_type) / df_type
+    data_root = get_data_path(df_type)
 
     files, missing = [], []
     for d in date_list:
@@ -37,7 +37,7 @@ def load_data(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
 
 def load_data_hive_sym(df_type: str, date_str: str | pl.Series, sym: SymType = None) -> pl.LazyFrame:
     date_list = _get_date_list(df_type, date_str)
-    data_root = get_data_path(df_type) / df_type
+    data_root = get_data_path(df_type)
 
     if sym is None:
         syms = [p.name.split("=", 1)[1] for p in sorted(data_root.iterdir()) if p.is_dir() and p.name.startswith("sym=")]
