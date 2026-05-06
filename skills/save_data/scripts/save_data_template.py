@@ -14,7 +14,7 @@ def main(
     df = pl.DataFrame()
 
     base = Path(data_dir or get_data_dir())
-    path = base / NAME / f"{date}.parquet"
+    path = base / NAME.replace("__", "/") / f"{date}.parquet"
 
     if write:
         path.parent.mkdir(parents=True, exist_ok=True)

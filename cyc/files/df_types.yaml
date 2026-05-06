@@ -64,7 +64,7 @@ a_futures_all:
 
 a_futures_instrument:
   cols:
-    core: [sym, date, close]
+    core: [sym, date, close, open_interest]
   sym: sym
   date: date
   calendar: sse
