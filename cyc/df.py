@@ -9,8 +9,7 @@ from .data_finance import add_stock, add_spot
 from .data_analysis import accum_ratiop, accum_ratio
 from .config import get_df_type_dict
 
-from .data_loaders import load_data, load_data_single, load_data_hive_sym
-from .config import get_file_layout
+from .data_loaders import load_data
 from .time_util import parse_time_to_ns
 
 
@@ -52,7 +51,7 @@ class Df(_DfBase):
         time: pl.Datetime("ns")
     """
 
-    df: pl.DataFrame  # unmodifiable except in enrich
+    df: pl.DataFrame  # unmodifiable except in enrich / load_sidecars
     df_type: str
 
     def __init__(self, df: pl.DataFrame, df_type="default") -> None:
@@ -61,20 +60,25 @@ class Df(_DfBase):
 
     @classmethod
     def load_data(cls, df_type: str, date_str: str | pl.Series | None = None, sym: SymType = None) -> Df:
-        file_layout = get_file_layout(df_type)
-        match file_layout:
-            case "hive_sym":
-                assert date_str is not None
-                lf = load_data_hive_sym(df_type, date_str, sym)
-            case "single" | "single_hive_sym":
-                lf = load_data_single(df_type)
-            case _:
-                assert date_str is not None
-                lf = load_data(df_type, date_str)
-
+        lf = load_data(df_type, date_str, sym)
         lf = cls._enrich(lf, df_type)
-        lf = lf.filter(filter_sym(sym))
+        lf = lf.filter(filter_sym(sym))  # after _enrich so the canonical "sym" column exists
         return Df(lf.collect(), df_type)
+
+    def load_sidecars(self, sidecars: str | list[str]) -> None:
+        """
+        Load each sidecar and merge its columns into self.df.
+
+        Not supported if self.df was sym-filtered at load: sidecar parquets
+        carry all syms for the date range, so rows won't align (ShapeError).
+        """
+        if isinstance(sidecars, str):
+            sidecars = [sidecars]
+        date_list = self.df["date"].unique() if "date" in self.df.columns else None
+
+        for name in sidecars:
+            lf = load_data(f"{self.df_type}__{name}", date_list, None)
+            self.df = self.df.with_columns(lf.collect().get_columns())
 
     @classmethod
     def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:

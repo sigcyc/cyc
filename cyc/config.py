@@ -29,7 +29,7 @@ def get_calendar(df_type: str) -> str:
 
 def get_file_layout(df_type: str) -> str | None:
     config = _load_yaml()
-    return config[_parent(df_type)].get("file_layout")
+    return config[_parent(df_type)].get("file_layout", "date")
 
 
 def get_data_path(df_type: str) -> Path:
