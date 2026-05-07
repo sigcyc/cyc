@@ -10,7 +10,7 @@ def _load_yaml() -> dict:
         return yaml.safe_load(file) or {}
 
 
-def _parent(df_type: str) -> str:
+def get_df_type_parent(df_type: str) -> str:
     return df_type.split("__", 1)[0]
 
 def get_df_type_dict(df_type: str) -> DfType:
@@ -19,12 +19,12 @@ def get_df_type_dict(df_type: str) -> DfType:
 
 def get_calendar(df_type: str) -> str:
     config = _load_yaml()
-    return config[_parent(df_type)].get("calendar", config["default"].get("calendar", "nyse"))
+    return config[get_df_type_parent(df_type)].get("calendar", config["default"].get("calendar", "nyse"))
 
 
 def get_file_layout(df_type: str) -> str | None:
     config = _load_yaml()
-    return config[_parent(df_type)].get("file_layout", "date")
+    return config[get_df_type_parent(df_type)].get("file_layout", "date")
 
 
 def get_data_path(df_type: str) -> Path:
@@ -33,6 +33,6 @@ def get_data_path(df_type: str) -> Path:
     For a sidecar `parent__name`, returns `<data_path>/parent/name`.
     """
     config = _load_yaml()
-    parent = _parent(df_type)
+    parent = get_df_type_parent(df_type)
     base = (config[parent].get("data") or {}).get("path", config["data_dir"])
     return Path(base).expanduser() / df_type.replace("__", "/")
