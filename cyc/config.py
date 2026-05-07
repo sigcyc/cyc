@@ -13,11 +13,6 @@ def _load_yaml() -> dict:
 def _parent(df_type: str) -> str:
     return df_type.split("__", 1)[0]
 
-
-def get_data_dir() -> Path:
-    return Path(_load_yaml()["data_dir"]).expanduser()
-
-
 def get_df_type_dict(df_type: str) -> DfType:
     return _load_yaml()[df_type]
 
