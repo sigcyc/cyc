@@ -70,7 +70,8 @@ class Df(_DfBase):
         Load each sidecar and merge its columns into self.df.
 
         sym/time in the sidecar are verified against self.df rather than
-        overwritten; non-null mismatches raise ValueError. Nulls are skipped.
+        overwritten. Where the sidecar value is not null, it must equal
+        self.df's value or ValueError is raised.
 
         Not supported if self.df was sym-filtered at load: sidecar parquets
         carry all syms for the date range, so rows won't align (ShapeError).
@@ -85,7 +86,7 @@ class Df(_DfBase):
             new_columns = []
             for col in lf.collect().get_columns():
                 if col.name in protected and col.name in self.df.columns:
-                    if (col.is_not_null() & (self.df[col.name] != col)).any():
+                    if (col.is_not_null() & col.ne_missing(self.df[col.name])).any():
                         raise ValueError(
                             f"Sidecar {name!r} column {col.name!r} does not match self.df"
                         )
