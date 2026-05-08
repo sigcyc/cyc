@@ -69,16 +69,29 @@ class Df(_DfBase):
         """
         Load each sidecar and merge its columns into self.df.
 
+        sym/time in the sidecar are verified against self.df rather than
+        overwritten; mismatches raise ValueError.
+
         Not supported if self.df was sym-filtered at load: sidecar parquets
         carry all syms for the date range, so rows won't align (ShapeError).
         """
         if isinstance(sidecars, str):
             sidecars = [sidecars]
         date_list = self.df["date"].unique() if "date" in self.df.columns else None
+        protected = ("sym", "time")
 
         for name in sidecars:
             lf = load_data(f"{self.df_type}__{name}", date_list, None)
-            self.df = self.df.with_columns(lf.collect().get_columns())
+            new_columns = []
+            for col in lf.collect().get_columns():
+                if col.name in protected and col.name in self.df.columns:
+                    if not self.df[col.name].equals(col):
+                        raise ValueError(
+                            f"Sidecar {name!r} column {col.name!r} does not match self.df"
+                        )
+                else:
+                    new_columns.append(col)
+            self.df = self.df.with_columns(new_columns)
 
     @classmethod
     def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:
