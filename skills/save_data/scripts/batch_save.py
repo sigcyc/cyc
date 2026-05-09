@@ -13,7 +13,7 @@ def _run_one(args: tuple[str, str, list[str]]) -> subprocess.CompletedProcess:
 def main(
     script: str,
     date: str,
-    processes: int = 10,
+    processes: int = 40,
     data_dir: str | None = None,
 ):
     dates = parse_dates(date)
