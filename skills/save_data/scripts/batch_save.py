@@ -1,13 +1,15 @@
 import typer
 import subprocess
 from multiprocessing import Pool
+from pathlib import Path
+from cyc.config import get_calendar
 from cyc.time_util import parse_dates
 
 
-def _run_one(args: tuple[str, str, list[str]]) -> subprocess.CompletedProcess:
+def _run_one(args: tuple[str, str, list[str]]) -> tuple[str, subprocess.CompletedProcess]:
     script, date, extra = args
     cmd = ["python", script, "--date", date, "--write"] + extra
-    return subprocess.run(cmd, capture_output=True, text=True)
+    return date, subprocess.run(cmd, capture_output=True, text=True)
 
 
 def main(
@@ -16,14 +18,19 @@ def main(
     processes: int = 40,
     data_dir: str | None = None,
 ):
-    dates = parse_dates(date)
-    print(f"{len(dates)} dates, {processes} processes")
+    df_type = Path(script).stem.removeprefix("save_")
+    dates = parse_dates(date, get_calendar(df_type))
+    print(f"{len(dates)} dates ({df_type}), {processes} processes", flush=True)
 
     extra = ["--data-dir", data_dir] if data_dir else []
     tasks = [(script, d, extra) for d in dates]
 
+    results = []
     with Pool(processes) as pool:
-        results = pool.map(_run_one, tasks)
+        for i, (d, r) in enumerate(pool.imap_unordered(_run_one, tasks), 1):
+            status = "OK" if r.returncode == 0 else "FAIL"
+            print(f"[{i}/{len(tasks)}] {status} {d}", flush=True)
+            results.append(r)
 
     failed = [r for r in results if r.returncode != 0]
     for r in failed:
