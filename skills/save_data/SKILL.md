@@ -13,7 +13,7 @@ python ${CLAUDE_SKILL_DIR}/scripts/batch_save.py <script_path> <date_range>
 
 - `<script_path>`: Relative path to the save script from the project root (e.g., `scripts/save_data_template.py`)
 - `<date_range>`: YYYYMMDD or YYYYMMDD-YYYYMMDD. Expanded to trading days via `cyc.time_util.parse_dates`
-- `--processes`: Number of parallel processes (default 40)
+- `--processes`: Number of parallel processes (default 18)
 - `--data-dir`: Optional override for the base data directory
 
 ## Progress

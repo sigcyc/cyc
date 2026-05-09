@@ -15,7 +15,7 @@ def _run_one(args: tuple[str, str, list[str]]) -> tuple[str, subprocess.Complete
 def main(
     script: str,
     date: str,
-    processes: int = 40,
+    processes: int = 18,
     data_dir: str | None = None,
 ):
     df_type = Path(script).stem.removeprefix("save_")
