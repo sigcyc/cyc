@@ -79,12 +79,24 @@ class Df(_DfBase):
         if isinstance(sidecars, str):
             sidecars = [sidecars]
         date_list = self.df["date"].unique() if "date" in self.df.columns else None
-        protected = ("sym", "time")
+        protected = ("sym", "time", "date")
 
         for name in sidecars:
-            lf = load_data(f"{self.df_type}__{name}", date_list, None)
+            sidecar_df = load_data(f"{self.df_type}__{name}", date_list, None).collect()
+            if len(sidecar_df) != len(self.df):
+                self_counts = self.df.group_by("date").len().sort("date")
+                sidecar_counts = sidecar_df.group_by("date").len().sort("date")
+                diff = (
+                    self_counts.join(
+                        sidecar_counts, on="date", how="full", coalesce=True, suffix="_sidecar"
+                    )
+                    .filter(pl.col("len").ne_missing(pl.col("len_sidecar")))
+                    .sort("date")
+                )
+                print(diff)
+                raise ValueError(f"Sidecar length doesn't match spine")
             new_columns = []
-            for col in lf.collect().get_columns():
+            for col in sidecar_df.get_columns():
                 if col.name in protected and col.name in self.df.columns:
                     if (col.is_not_null() & col.ne_missing(self.df[col.name])).any():
                         raise ValueError(

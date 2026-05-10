@@ -53,7 +53,11 @@ def load_data_date(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
     if not files:
         raise FileNotFoundError(f"No data found in '{data_root}'")
 
-    return pl.scan_parquet(files, missing_columns="insert")
+    return (
+        pl.scan_parquet(files, missing_columns="insert", include_file_paths="__path__")
+        .with_columns(pl.col("__path__").str.extract(r"(\d{8})\.parquet$").str.to_date("%Y%m%d").alias("date"))
+        .drop("__path__")
+    )
 
 
 def load_data_hive_sym(df_type: str, date_str: str | pl.Series, sym: SymType = None) -> pl.LazyFrame:

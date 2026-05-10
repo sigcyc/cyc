@@ -69,6 +69,8 @@ a_futures_instrument:
   date: date
   calendar: sse
 
+a_futures_instrument__index:
+
 a_futures_study:
   cols:
     core: [sym, date, close, spread]
