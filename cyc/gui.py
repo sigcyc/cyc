@@ -58,12 +58,15 @@ class PlotSpec:
         ]
         crosshair = self._crosshair(pl.concat(left + right), series, time_format)
         if len(layers) == 1:
-            return layers[0] + crosshair
-        # y=independent gives left and right their own scales (dual-axis);
-        # color=shared keeps one legend and one color cycle across both layers.
-        # The crosshair rule has no y encoding, so independent y on the line
-        # layers doesn't distort it.
-        return (layers[0] + layers[1] + crosshair).resolve_scale(y="independent", color="shared")
+            chart = layers[0] + crosshair
+        else:
+            # y=independent gives left and right their own scales (dual-axis);
+            # color=shared keeps one legend and one color cycle across both layers.
+            # The crosshair rule has no y encoding, so independent y on the line
+            # layers doesn't distort it.
+            chart = (layers[0] + layers[1] + crosshair).resolve_scale(y="independent", color="shared")
+        # bind_y=False: drag-pan and wheel-zoom act on the x scale only.
+        return chart.interactive(bind_y=False)
 
     def _resolve_time_format(self, parts: list[pl.DataFrame]) -> str:
         t = pl.concat([p["time"] for p in parts])
