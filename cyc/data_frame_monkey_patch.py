@@ -162,9 +162,13 @@ class Cyc:
             lambda s: _ewm_sum(s.struct[0].to_numpy(), s.struct[1].dt.timestamp().to_numpy(), alpha)
         )
 
-    def cut(self, breaks, **kwargs):
+    def cut(self, breaks, f=True, **kwargs):
+        """Cut into bins, keeping length. Rows where `f` is false go to the
+        `filtered` bucket, which sorts last (NaN breakpoint)."""
         name = self._value.meta.output_name()
-        return self._value.cut(breaks, include_breaks=True, **kwargs).alias(f"{name}_cut")
+        cut = self._value.cut(breaks, include_breaks=True, **kwargs)
+        filtered = pl.struct(breakpoint=pl.lit(float("nan")), category=pl.lit("filtered"))
+        return pl.when(f).then(cut).otherwise(filtered).alias(f"{name}_cut")
 
 
 setattr(pl.DataFrame, "_T", property(_print_transpose))
