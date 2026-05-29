@@ -56,21 +56,29 @@ def accum_ratiop(
     return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in idx_cols), footer], how="vertical_relaxed")
 
 
+def _value_expr(value: str | pl.Expr, filt: str | pl.Expr | None) -> pl.Expr:
+    """Resolve a pivot value (column name or expression), masking it to 0 where `filt` is false."""
+    expr = pl.col(value) if isinstance(value, str) else value
+    if filt is not None:
+        expr = pl.when(filt).then(expr).otherwise(0)
+    return expr
+
+
 def accum_ratio(
     df: pl.DataFrame,
     row: str | list[str],
     column: str | list[str],
-    val1: str,
-    val2: str,
+    val1: str | pl.Expr,
+    val2: str | pl.Expr,
     filt1: str | pl.Expr | None = None,
     filt2: str | pl.Expr | None = None,
 ) -> pl.DataFrame:
-    if filt1 is not None:
-        df = df.with_columns(pl.when(filt1).then(val1).otherwise(0))
-    if filt2 is not None:
-        df = df.with_columns(pl.when(filt2).then(val2).otherwise(0))
-    pv_num = df.pivot(on=column, index=row, values=val1, aggregate_function="sum")
-    pv_denom = df.pivot(on=column, index=row, values=val2, aggregate_function="sum")
+    df = df.with_columns(
+        __num__=_value_expr(val1, filt1),
+        __denom__=_value_expr(val2, filt2),
+    )
+    pv_num = df.pivot(on=column, index=row, values="__num__", aggregate_function="sum")
+    pv_denom = df.pivot(on=column, index=row, values="__denom__", aggregate_function="sum")
 
     idx_cols = df.select(row).columns
     val_cols = [c for c in pv_num.columns if c not in idx_cols]
