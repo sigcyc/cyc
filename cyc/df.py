@@ -2,7 +2,7 @@ from __future__ import annotations
 import functools
 from datetime import datetime
 from itertools import zip_longest
-from typing import Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
+from typing import Any, Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
 from .types import SymType
 import polars as pl
 from .data_finance import add_stock, add_spot
@@ -35,12 +35,14 @@ def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
     return pl.concat([df1, df2], how="horizontal").select(interleaved)
 
 def wrap_df_func(
-    func: Callable[Concatenate[pl.DataFrame, P], pl.DataFrame],
-) -> Callable[Concatenate[Df, P], Df]:
+    func: Callable[Concatenate[pl.DataFrame, P], Any],
+) -> Callable[Concatenate[Df, P], Any]:
     @functools.wraps(func)
-    def wrapper(df: Df, *args: P.args, **kwargs: P.kwargs) -> Df:
+    def wrapper(df: Df, *args: P.args, **kwargs: P.kwargs) -> Any:
         result = func(df.df, *args, **kwargs)
-        return Df(result, df.df_type)
+        if isinstance(result, pl.DataFrame):
+            return Df(result, df.df_type)
+        return result
 
     return wrapper
 
