@@ -55,15 +55,6 @@ def accum_ratiop(
 
     return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in idx_cols), footer], how="vertical_relaxed")
 
-
-def _value_expr(value: str | pl.Expr, filt: str | pl.Expr | None) -> pl.Expr:
-    """Resolve a pivot value (column name or expression), masking it to 0 where `filt` is false."""
-    expr = pl.col(value) if isinstance(value, str) else value
-    if filt is not None:
-        expr = pl.when(filt).then(expr).otherwise(0)
-    return expr
-
-
 def _is_cut(dtype: pl.DataType) -> bool:
     """A cyc.cut column is a struct carrying both breakpoint and category."""
     return isinstance(dtype, pl.Struct) and {f.name for f in dtype.fields} >= {"breakpoint", "category"}
@@ -85,16 +76,12 @@ def accum_ratio(
     column: str | list[str],
     val1: str | pl.Expr,
     val2: str | pl.Expr,
-    filt1: str | pl.Expr | None = None,
-    filt2: str | pl.Expr | None = None,
+    filter: str | pl.Expr | None = None,
 ) -> pl.DataFrame:
-    if filt2 is None:
-        filt2 = filt1
+    if filter is not None:
+        df = df.filter(filter)
 
-    df = df.with_columns(
-        __num__=_value_expr(val1, filt1),
-        __denom__=_value_expr(val2, filt2),
-    )
+    df = df.with_columns(__num__=val1, __denom__=val2)
 
     idx_cols = [row] if isinstance(row, str) else row
     column_cols = [column] if isinstance(column, str) else column
@@ -128,7 +115,7 @@ def accum_ratio(
         [
             {
                 **{c: "col_ratio" for c in idx_cols},
-                **{c: col_sum_num[c][0] / col_sum_denom[c][0] for c in val_cols},
+                **{c: None if col_sum_denom[c][0] == 0 else col_sum_num[c][0] / col_sum_denom[c][0] for c in val_cols},
                 "row_ratio": grand_num / grand_denom,
                 "row_sum": None,
             },

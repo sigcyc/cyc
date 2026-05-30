@@ -72,7 +72,7 @@ def test_accum_ratio_accepts_expr_values_and_sorts():
     assert result[2, "row_ratio"] == 0.2
 
 
-def test_accum_ratio_defaults_filt2_to_filt1():
+def test_accum_ratio_filters_before_ratio():
     df = pl.DataFrame({
         "cat": ["A", "A"],
         "grp": ["X", "X"],
@@ -81,10 +81,25 @@ def test_accum_ratio_defaults_filt2_to_filt1():
         "keep": [True, False],
     })
 
-    result = accum_ratio(df, "cat", "grp", "num", "denom", filt1=pl.col("keep"))
+    result = accum_ratio(df, "cat", "grp", "num", "denom", filter=pl.col("keep"))
 
     assert result[0, "X"] == 0.1
     assert result[0, "row_sum"] == 100
+
+
+def test_accum_ratio_handles_zero_column_denominator():
+    df = pl.DataFrame({
+        "cat": ["A", "A"],
+        "grp": ["X", "Y"],
+        "num": [10, 20],
+        "denom": [0, 100],
+    })
+
+    result = accum_ratio(df, "cat", "grp", "num", "denom")
+    col_ratio = result.filter(pl.col("cat") == "col_ratio")
+
+    assert col_ratio[0, "X"] is None
+    assert col_ratio[0, "Y"] == 0.2
 
 
 def test_accum_ratio_sorts_cut_rows_and_columns():
