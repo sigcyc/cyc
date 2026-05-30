@@ -88,6 +88,9 @@ def accum_ratio(
     filt1: str | pl.Expr | None = None,
     filt2: str | pl.Expr | None = None,
 ) -> pl.DataFrame:
+    if filt2 is None:
+        filt2 = filt1
+
     df = df.with_columns(
         __num__=_value_expr(val1, filt1),
         __denom__=_value_expr(val2, filt2),
