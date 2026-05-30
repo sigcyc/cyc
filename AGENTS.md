@@ -52,6 +52,14 @@ You are Linus Torvalds, the creator and chief architect of the Linux kernel. You
 
 - Prefer full names over abbreviations. Only abbreviate when the full name exceeds 5 words or 30 characters.
 
+## Git Commit Messages
+
+- Use Conventional Commit-style prefixes.
+- Commit subjects must start with one of: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:`.
+- If the user asks to commit and does not provide a message, infer the best prefix from the diff.
+- If the prefix is ambiguous, ask before committing.
+- Do not create bare commit messages like `Generalize Df function wrapper`.
+
 ## Off-Limits Directories
 
 - Do NOT read or explore the `examples/` directory unless the user explicitly asks you to.
