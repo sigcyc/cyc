@@ -15,10 +15,11 @@ def accum_ratiop(
     """Pivot with percentages and marginal totals."""
     if filter is not None:
         df = df.with_columns(pl.when(filter).then(values).otherwise(0))
+    row = df.select(row).columns
+    column = df.select(column).columns
     pv = df.pivot(on=column, index=row, values=values, aggregate_function="sum")
 
-    idx_cols = df.select(row).columns
-    val_cols = [c for c in pv.columns if c not in idx_cols]
+    val_cols = [c for c in pv.columns if c not in row]
 
     row_sum = pl.sum_horizontal(val_cols)
     grand_total = pv.select(row_sum.sum())[0, 0]
@@ -39,13 +40,13 @@ def accum_ratiop(
     footer = pl.DataFrame(
         [
             {
-                **{c: "col_pct" for c in idx_cols},
+                **{c: "col_pct" for c in row},
                 **{c: col_sum[c][0] / grand_total * 100 for c in val_cols},
                 "row_pct": 100.0,
                 "row_sum": None,
             },
             {
-                **{c: "col_sum" for c in idx_cols},
+                **{c: "col_sum" for c in row},
                 **{c: col_sum[c][0] for c in val_cols},
                 "row_pct": None,
                 "row_sum": grand_total,
@@ -53,7 +54,7 @@ def accum_ratiop(
         ]
     )
 
-    return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in idx_cols), footer], how="vertical_relaxed")
+    return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
 
 def _is_cut(dtype: pl.DataType) -> bool:
     """A cyc.cut column is a struct carrying both breakpoint and category."""
@@ -83,20 +84,20 @@ def accum_ratio(
 
     df = df.with_columns(__num__=val1, __denom__=val2)
 
-    idx_cols = [row] if isinstance(row, str) else row
-    column_cols = [column] if isinstance(column, str) else column
-    grouped = df.group_by(idx_cols + column_cols).agg(
+    row = [row] if isinstance(row, str) else row
+    column = [column] if isinstance(column, str) else column
+    grouped = df.group_by(row + column).agg(
         pl.col("__num__").sum(),
         pl.col("__denom__").sum(),
     )
-    grouped = _sort_grouped(grouped, idx_cols + column_cols)
+    grouped = _sort_grouped(grouped, row + column)
 
     pv_num = grouped.pivot(on=column, index=row, values="__num__", aggregate_function="sum")
     pv_denom = grouped.pivot(on=column, index=row, values="__denom__", aggregate_function="sum")
-    val_cols = [c for c in pv_num.columns if c not in idx_cols]
+    val_cols = [c for c in pv_num.columns if c not in row]
 
     # Cell ratios
-    pv = pv_num.select(idx_cols).with_columns((pv_num[c] / pv_denom[c]).alias(c) for c in val_cols)
+    pv = pv_num.select(row).with_columns((pv_num[c] / pv_denom[c]).alias(c) for c in val_cols)
 
     # Row marginals
     row_sum_num = pl.sum_horizontal(pv_num.select(val_cols))
@@ -114,13 +115,13 @@ def accum_ratio(
     footer = pl.DataFrame(
         [
             {
-                **{c: "col_ratio" for c in idx_cols},
+                **{c: "col_ratio" for c in row},
                 **{c: None if col_sum_denom[c][0] == 0 else col_sum_num[c][0] / col_sum_denom[c][0] for c in val_cols},
                 "row_ratio": grand_num / grand_denom,
                 "row_sum": None,
             },
             {
-                **{c: "col_sum" for c in idx_cols},
+                **{c: "col_sum" for c in row},
                 **{c: col_sum_denom[c][0] for c in val_cols},
                 "row_ratio": None,
                 "row_sum": grand_denom,
@@ -128,4 +129,4 @@ def accum_ratio(
         ]
     )
 
-    return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in idx_cols), footer], how="vertical_relaxed")
+    return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
