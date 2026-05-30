@@ -124,7 +124,7 @@ def _to_df(df: pl.DataFrame, df_type="default"):
 
 def _sort_cut(df: pl.DataFrame, cut_name):
     try:
-        return df.unnest(cut_name).sort("breakpoint").drop("breakpoint").rename({"category": cut_name})
+        return df.unnest(cut_name).sort("breakpoint", maintain_order=True).drop("breakpoint").rename({"category": cut_name})
     except Exception:
         raise ValueError(f"{cut_name!r}: pass include_breaks=True to pl.cut")
 

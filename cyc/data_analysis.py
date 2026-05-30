@@ -64,6 +64,21 @@ def _value_expr(value: str | pl.Expr, filt: str | pl.Expr | None) -> pl.Expr:
     return expr
 
 
+def _is_cut(dtype: pl.DataType) -> bool:
+    """A cyc.cut column is a struct carrying both breakpoint and category."""
+    return isinstance(dtype, pl.Struct) and {f.name for f in dtype.fields} >= {"breakpoint", "category"}
+
+
+def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
+    normal_columns = []
+    for name in columns:
+        if _is_cut(df.schema[name]):
+            df = df.sort_cut(name)
+        else:
+            normal_columns.append(name)
+    return df.sort(normal_columns, maintain_order=True) if normal_columns else df
+
+
 def accum_ratio(
     df: pl.DataFrame,
     row: str | list[str],
@@ -77,10 +92,17 @@ def accum_ratio(
         __num__=_value_expr(val1, filt1),
         __denom__=_value_expr(val2, filt2),
     )
-    pv_num = df.pivot(on=column, index=row, values="__num__", aggregate_function="sum")
-    pv_denom = df.pivot(on=column, index=row, values="__denom__", aggregate_function="sum")
 
-    idx_cols = df.select(row).columns
+    idx_cols = [row] if isinstance(row, str) else row
+    column_cols = [column] if isinstance(column, str) else column
+    grouped = df.group_by(idx_cols + column_cols).agg(
+        pl.col("__num__").sum(),
+        pl.col("__denom__").sum(),
+    )
+    grouped = _sort_grouped(grouped, idx_cols + column_cols)
+
+    pv_num = grouped.pivot(on=column, index=row, values="__num__", aggregate_function="sum")
+    pv_denom = grouped.pivot(on=column, index=row, values="__denom__", aggregate_function="sum")
     val_cols = [c for c in pv_num.columns if c not in idx_cols]
 
     # Cell ratios
