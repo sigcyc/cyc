@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Literal
 import polars as pl
 from polars.selectors import Selector
@@ -61,6 +62,12 @@ def _is_cut(dtype: pl.DataType) -> bool:
     return isinstance(dtype, pl.Struct) and {f.name for f in dtype.fields} >= {"breakpoint", "category"}
 
 
+def _key_col(df: pl.DataFrame, name: str) -> pl.Expr:
+    """Match a cyc.cut column on its category label (it pivots/sorts to category)."""
+    col = pl.col(name)
+    return col.struct.field("category") if _is_cut(df.schema[name]) else col
+
+
 def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
     normal_columns = []
     for name in columns:
@@ -71,6 +78,35 @@ def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
     return df.sort(normal_columns, maintain_order=True) if normal_columns else df
 
 
+@dataclass(repr=False)
+class AccumRatioResult:
+    df: pl.DataFrame
+    row: list[pl.Expr]
+    column: list[pl.Expr]
+    row_keys: list[tuple]
+    column_keys: list[tuple]
+
+    def __repr__(self) -> str:
+        with pl.Config(tbl_rows=-1, tbl_cols=-1):
+            return repr(self.df)
+
+    def filter(self, row: int | None, column: int | None) -> pl.Expr:
+        exprs = []
+        if row is not None:
+            exprs += [c == v for c, v in zip(self.row, self.row_keys[row])]
+        if column is not None:
+            exprs += [c == v for c, v in zip(self.column, self.column_keys[column])]
+        return pl.all_horizontal(exprs)
+
+    def with_index(self) -> pl.DataFrame:
+        """Display copy: trailing `_idx` column numbers rows, a bottom row numbers value columns."""
+        n, labels = len(self.row_keys), len(self.row)
+        val_cols = self.df.columns[labels:labels + len(self.column_keys)]
+        col_row = {c: (val_cols.index(c) if c in val_cols else None) for c in self.df.columns}
+        df = pl.concat([self.df, pl.DataFrame([col_row])], how="vertical_relaxed")
+        return df.with_columns(pl.Series("_idx", list(range(n)) + [None] * (df.height - n), dtype=pl.Int64))
+
+
 def accum_ratio(
     df: pl.DataFrame,
     row: str | list[str],
@@ -78,7 +114,7 @@ def accum_ratio(
     val1: str | pl.Expr,
     val2: str | pl.Expr,
     filter: str | pl.Expr | None = None,
-) -> pl.DataFrame:
+) -> AccumRatioResult:
     if filter is not None:
         df = df.filter(filter)
 
@@ -129,4 +165,11 @@ def accum_ratio(
         ]
     )
 
-    return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
+    result = pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
+    return AccumRatioResult(
+        result,
+        [_key_col(df, c) for c in row],
+        [_key_col(df, c) for c in column],
+        pv_num.select(row).rows(),
+        grouped.select(column).unique(maintain_order=True).rows(),
+    )
