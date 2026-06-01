@@ -5,37 +5,40 @@ import polars as pl
 from .time_util import next_trading_day, previous_trading_day
 from .data_loaders import load_data
 
-def add_stock(self: pl.DataFrame, fields: str | list[str], sym: str = 'sym') -> pl.DataFrame:
+def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str]) -> pl.DataFrame:
     """
     Join stock_data_day fields onto self by (sym, date).
 
     Args:
+        sym: name of the symbol column in self
+        date: name of the date column in self
         fields: column name or list of column names to fetch
 
     Returns:
         DataFrame with sym, date, and requested fields
     """
-    stock_data = load_data("stock_data_day", self["date"].unique()).collect()
+    stock_data = load_data("stock_data_day", self[date].unique()).collect()
     field_list = [fields] if isinstance(fields, str) else fields
     stock_data = stock_data.select(
-        pl.col("ticker").alias(sym), "date", *field_list
+        pl.col("ticker").alias(sym), pl.col("date").alias(date), *field_list
     )
-    return self.join(stock_data, on=[sym, "date"], how="left")
+    return self.join(stock_data, on=[sym, date], how="left")
 
 
-def add_spot(self: pl.DataFrame, num_days: int, field: str = "close") -> pl.DataFrame:
+def add_spot(self: pl.DataFrame, sym: str, date: str, num_days: int, field: str = "close") -> pl.DataFrame:
     """
     Get spot price adjusted for dividends and splits.
 
     Args:
+        sym: name of the symbol column in self
+        date: name of the date column in self
         num_days: 0 for current, positive for forward, negative for backward
         field: price field to adjust (default: close)
 
     Returns:
         DataFrame with sym, date, and adjusted field
     """
-    sym, date = self["sym"], self["date"]
-    result = _get_spot(sym, date, num_days, field)
+    result = _get_spot(self[sym], self[date], num_days, field)
     name = f"spot_d{num_days}" if num_days >= 0 else f"spot_dm{-num_days}"
     return self.with_columns(result.alias(name))
 
@@ -47,20 +50,20 @@ def _get_spot(
     df = pl.DataFrame({"sym": sym, "date": date})
 
     if num_days == 0:
-        return add_stock(df, field)[field]
+        return add_stock(df, "sym", "date", field)[field]
 
     if num_days > 0:
         next_day = next_trading_day(date)
         spot = _get_spot(sym, next_day, num_days - 1, field)
         next_df = pl.DataFrame({"sym": sym, "date": next_day})
-        adj = add_stock(next_df, ["dividend", "split"])
+        adj = add_stock(next_df, "sym", "date", ["dividend", "split"])
         dividend = adj["dividend"].fill_null(0)
         split = adj["split"].fill_null(1)
         return spot * split + dividend
 
     prev_day = previous_trading_day(date)
     spot = _get_spot(sym, prev_day, num_days + 1, field)
-    adj = add_stock(df, ["dividend", "split"])
+    adj = add_stock(df, "sym", "date", ["dividend", "split"])
     dividend = adj["dividend"].fill_null(0)
     split = adj["split"].fill_null(1)
     return (spot - dividend) / split
