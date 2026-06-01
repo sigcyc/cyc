@@ -1,50 +1,55 @@
 ---
 name: ingest_raw_dataset
 description: Ingest a raw dataset into the project's normalized parquet storage layout
-argument-hint: file_layout
+argument-hint: DATASET path file_layout
 ---
 
 ## Inputs
 
-- `DATASET` — the raw dataset directory (working directory for this skill)
-- `file_layout` — target layout, one of the patterns in `~/.claude/skills/ingest_raw_dataset/data_pipeline.md`
+- `DATASET` — the raw dataset: a directory or a single file. Also the working directory for this skill's own artifacts (`columns.yaml`, `convert.py`).
+- `path` — where to write the normalized output. Registered as `data.path` and resolved by `cyc.config.get_data_path("DATASET")`.
+- `file_layout` — target layout, one of the patterns in `~/.claude/skills/ingest_raw_dataset/data_pipeline.md`.
 
 ## Steps
 
-1. **Preserve raw data**
-   - Rename `DATASET` → `DATASET_raw`. Never modify `DATASET_raw` after this point.
-
-2. **Survey the filesystem layout**
-   - Walk `DATASET_raw` and summarize its directory structure only (e.g. `DATASET_raw/SYMBOL.csv`, `DATASET_raw/SYMBOL/YYYY-MM-DD.csv`).
+1. **Survey the filesystem layout**
+   - Walk `DATASET` and summarize its directory structure only (e.g. `DATASET/SYMBOL.csv`, `DATASET/SYMBOL/YYYY-MM-DD.csv`).
    - Do NOT open or read any file yet.
 
+2. **Preserve raw data**
+   - If `DATASET` and `path` resolve to the same location, conversion would overwrite the raw data. In that case, rename `DATASET` → `DATASET_raw` first.
+   - From here on, read raw data from `raw_src`: `DATASET_raw` if you renamed in this step, otherwise `DATASET`.
+   - Never modify `raw_src` after this point.
+
 3. **Survey file contents and build column mapping**
-   - Read ONE representative file from `DATASET_raw`.
+   - Read ONE representative file from `raw_src`.
    - Create `DATASET/columns.yaml` mapping `raw_name: output_name`.
    - **Which columns to include in `columns.yaml`:**
      - Non-English columns: include (translate to English).
-     - English columns that has ` ` or `-`: include (replace ` ` and `-` by `_`).
+     - English columns containing ` ` or `-`: include (replace ` ` and `-` with `_`).
    - Ask the user to review `DATASET/columns.yaml` before proceeding. Monitor the file for edits.
 
 4. **Register in `cyc/files/df_types.yaml`**
    - `cyc` is the util package installed in the Python environment.
    - Add an entry for `DATASET` with: `sym`, `time` (or `date`), `data.path`, `file_layout`.
-   - Do this before writing the script so the script can use `cyc.config.get_data_path("DATASET")` to resolve the output directory.
+   - Set `data.path` to the `path` input, so `cyc.config.get_data_path("DATASET")` resolves the output directory.
+   - If `DATASET` is a single file, set `file_layout` to `single`.
+   - Do this before writing the script so the script can call `get_data_path("DATASET")`.
 
 5. **Write a conversion script at `DATASET/convert.py`**
    - Put the script in the dataset directory (not inline / not in a notebook) so it is reproducible and version-controllable.
    - Responsibilities:
-     - Read one raw file from `DATASET_raw`.
-     - Rename all columns in `DATASET/columns.yaml`.
-     - Pass through all the other columns with names unchanged.
+     - Read one raw file from `raw_src`.
+     - Rename all columns listed in `DATASET/columns.yaml`.
+     - Pass through all other columns with names unchanged.
      - Cast to the required output schema (see below).
-     - Write parquet files into the `file_layout` layout rooted at `cyc.config.get_data_path("DATASET")`.
+     - Write parquet files in the `file_layout` layout, rooted at `cyc.config.get_data_path("DATASET")`.
    - **Output schema requirement**: every output file MUST contain:
      - `sym` — `pl.String` or `pl.UInt64`
      - At least one of (both allowed):
        - `time` — `pl.Datetime("ns")`
        - `date` — `pl.Date`
-   - **Do NOT drop any columns** from the raw file, even if they look redundant. 
+   - **Do NOT drop any columns** from the raw file, even if they look redundant.
 
 6. **Dry-run on a single file and verify**
    - Run `DATASET/convert.py` on ONE raw file.
@@ -61,6 +66,6 @@ argument-hint: file_layout
 
 ## Safety Rules
 
-- NEVER read, write, move, or delete any files outside `DATASET_raw` and `DATASET`.
-- Do NOT list, touch, or inspect the parent directory or any sibling folders.
-- The only file allowed outside those two directories is `cyc/files/df_types.yaml` (step 4).
+- NEVER read, write, move, or delete any files outside `raw_src` (`DATASET` / `DATASET_raw`), the `DATASET` working directory, and the output `path`.
+- Do NOT list, touch, or inspect any other parent or sibling folders.
+- `cyc/files/df_types.yaml` is the only file you may edit outside those locations (step 4).
