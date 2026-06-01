@@ -147,6 +147,6 @@ def test_accum_ratio_filter_maps_cut_cells_back():
     result = accum_ratio(df, "price_cut", "grp", "num", "denom")
 
     # rows: ["(0, 100]", "(100, 300]", "(300, inf]", "filtered"]; columns: ["A", "B"]
-    assert df.filter(result.filter(0, 0))["num"].to_list() == [2]      # (0, 100] & A
-    assert sorted(df.filter(result.filter(None, 0))["num"].to_list()) == [2, 3]  # all of A
-    assert df.filter(result.filter(3, 1))["num"].to_list() == [6]      # filtered & B
+    assert result.filter(df, 0, 0)["num"].to_list() == [2]      # (0, 100] & A
+    assert sorted(result.filter(df, None, 0)["num"].to_list()) == [2, 3]  # all of A
+    assert result.filter(df, 3, 1)["num"].to_list() == [6]      # filtered & B

@@ -80,3 +80,9 @@ a_futures_study:
   file_layout: single
 
 
+pdd_earnings:
+  cols:
+    core: [sym, date, canonical_line_item, rmb_thousands, usd_thousands]
+  sym: sym
+  date: date
+  file_layout: single
