@@ -2,7 +2,7 @@ from __future__ import annotations
 import functools
 from datetime import datetime
 from itertools import zip_longest
-from typing import Any, Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec
+from typing import Any, Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec, overload
 from .types import SymType
 import polars as pl
 from .data_finance import add_stock, add_spot
@@ -259,6 +259,10 @@ class Df(_DfBase):
             return wrapper
         return attr
 
+    @overload
+    def __getitem__(self, item: str) -> pl.Series: ...
+    @overload
+    def __getitem__(self, item: Any) -> Any: ...
     def __getitem__(self, item):  # type: ignore[override]
         result = self.df[item]
         if isinstance(result, pl.DataFrame):
