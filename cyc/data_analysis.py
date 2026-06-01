@@ -90,21 +90,26 @@ class AccumRatioResult:
         with pl.Config(tbl_rows=-1, tbl_cols=-1):
             return repr(self.df)
 
-    def filter(self, row: int | None, column: int | None) -> pl.Expr:
+    def filter(self, df: pl.DataFrame,  row: int | None, column: int | None) -> pl.DataFrame:
         exprs = []
         if row is not None:
             exprs += [c == v for c, v in zip(self.row, self.row_keys[row])]
         if column is not None:
             exprs += [c == v for c, v in zip(self.column, self.column_keys[column])]
-        return pl.all_horizontal(exprs)
+        return df.filter(pl.all_horizontal(exprs))
 
-    def with_index(self) -> pl.DataFrame:
-        """Display copy: trailing `_idx` column numbers rows, a bottom row numbers value columns."""
+    def add_index(self) -> "AccumRatioResult":
+        """Display copy: each value cell shows `value (row,column)` for filter()."""
         n, labels = len(self.row_keys), len(self.row)
         val_cols = self.df.columns[labels:labels + len(self.column_keys)]
-        col_row = {c: (val_cols.index(c) if c in val_cols else None) for c in self.df.columns}
-        df = pl.concat([self.df, pl.DataFrame([col_row])], how="vertical_relaxed")
-        return df.with_columns(pl.Series("_idx", list(range(n)) + [None] * (df.height - n), dtype=pl.Int64))
+        i = pl.Series("__i", list(range(n)) + [None] * (self.df.height - n), dtype=pl.Int64)
+        self.df =  self.df.with_columns(__i=i).with_columns(
+            pl.when(pl.col("__i").is_not_null())
+            .then(pl.col(c).round(2).cast(pl.String).fill_null("") + pl.format(" ({},{})", "__i", pl.lit(j)))
+            .otherwise(pl.col(c).cast(pl.String)).alias(c)
+            for j, c in enumerate(val_cols)
+        ).drop("__i")
+        return self
 
 
 def accum_ratio(
