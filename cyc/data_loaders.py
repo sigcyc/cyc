@@ -53,8 +53,16 @@ def load_data_date(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
     if not files:
         raise FileNotFoundError(f"No data found in '{data_root}'")
 
+    # The latest file decides the schema: backfill columns it has but older files lack
+    # (missing_columns), and drop columns older files have but it lacks (extra_columns).
     return (
-        pl.scan_parquet(files, missing_columns="insert", include_file_paths="__path__")
+        pl.scan_parquet(
+            files,
+            schema=pl.scan_parquet(files[-1]).collect_schema(),
+            missing_columns="insert",
+            extra_columns="ignore",
+            include_file_paths="__path__",
+        )
         .with_columns(pl.col("__path__").str.extract(r"(\d{8})\.parquet$").str.to_date("%Y%m%d").alias("date"))
         .drop("__path__")
     )
