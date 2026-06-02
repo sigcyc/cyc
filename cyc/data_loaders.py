@@ -6,7 +6,7 @@ from .time_util import parse_dates
 
 def _get_date_list(df_type: str, date_str: str | pl.Series) -> list[str]:
     if isinstance(date_str, pl.Series):
-        return [d.strftime("%Y%m%d") for d in date_str.to_list()]
+        return [d.strftime("%Y%m%d") for d in date_str.to_list() if d is not None]
     return parse_dates(date_str, get_calendar(df_type))
 
 
