@@ -5,27 +5,38 @@ import polars as pl
 from .time_util import next_trading_day, previous_trading_day
 from .data_loaders import load_data
 
-def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str]) -> pl.DataFrame:
+
+def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str] | dict[str, str]) -> pl.DataFrame:
     """
     Join stock_data_day fields onto self by (sym, date).
 
     Args:
         sym: name of the symbol column in self
         date: name of the date column in self
-        fields: column name or list of column names to fetch
+        fields: field(s) to fetch — a column name, a list of names, or a
+            {source_field: name} mapping to rename on the way in
 
     Returns:
         DataFrame with sym, date, and requested fields
     """
+    if isinstance(fields, str):
+        mapping = {fields: fields}
+    elif isinstance(fields, dict):
+        mapping = fields
+    else:
+        mapping = {f: f for f in fields}
     stock_data = load_data("stock_data_day", self[date].unique()).collect()
-    field_list = [fields] if isinstance(fields, str) else fields
     stock_data = stock_data.select(
-        pl.col("ticker").alias(sym), pl.col("date").alias(date), *field_list
+        pl.col("ticker").alias(sym),
+        pl.col("date").alias(date),
+        *[pl.col(name_old).alias(name_new) for name_old, name_new in mapping.items()],
     )
     return self.join(stock_data, on=[sym, date], how="left")
 
 
-def add_spot(self: pl.DataFrame, sym: str, date: str, num_days: int, field: str = "close") -> pl.DataFrame:
+def add_spot(
+    self: pl.DataFrame, sym: str, date: str, num_days: int, field: str = "close", name: str | None = None
+) -> pl.DataFrame:
     """
     Get spot price adjusted for dividends and splits.
 
@@ -34,18 +45,17 @@ def add_spot(self: pl.DataFrame, sym: str, date: str, num_days: int, field: str 
         date: name of the date column in self
         num_days: 0 for current, positive for forward, negative for backward
         field: price field to adjust (default: close)
+        name: output column name (default: spot_d{num_days}, or spot_dm{n} when negative)
 
     Returns:
         DataFrame with sym, date, and adjusted field
     """
     result = _get_spot(self[sym], self[date], num_days, field)
-    name = f"spot_d{num_days}" if num_days >= 0 else f"spot_dm{-num_days}"
+    name = name or (f"spot_d{num_days}" if num_days >= 0 else f"spot_dm{-num_days}")
     return self.with_columns(result.alias(name))
 
 
-def _get_spot(
-    sym: pl.Series, date: pl.Series, num_days: int, field: str
-) -> pl.Series:
+def _get_spot(sym: pl.Series, date: pl.Series, num_days: int, field: str) -> pl.Series:
     """Recursively compute adjusted spot price."""
     df = pl.DataFrame({"sym": sym, "date": date})
 
@@ -67,5 +77,3 @@ def _get_spot(
     dividend = adj["dividend"].fill_null(0)
     split = adj["split"].fill_null(1)
     return (spot - dividend) / split
-
-

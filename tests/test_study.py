@@ -47,3 +47,21 @@ def test_add_spot_backward():
     assert "spot_dm1" in result.columns
     current = nvda.add_stock("sym", "date", "close")
     assert ((result["spot_dm1"] - current["close"]).abs() <= 100).all()
+
+
+def test_add_stock_dict_rename():
+    df = Df.load_data("stock_data_day", "20210715-20210721")
+    nvda = df.s("NVDA").select("sym", "date")
+    result = nvda.add_stock("sym", "date", {"close": "px"})
+    assert "px" in result.columns
+    assert "close" not in result.columns
+    expected = nvda.add_stock("sym", "date", "close")
+    assert (result["px"] == expected["close"]).all()
+
+
+def test_add_spot_custom_name():
+    df = Df.load_data("stock_data_day", "20210715-20210721")
+    nvda = df.s("NVDA").select("sym", "date")
+    result = nvda.add_spot("sym", "date", 0, name="my_spot")
+    assert "my_spot" in result.columns
+    assert "spot_d0" not in result.columns
