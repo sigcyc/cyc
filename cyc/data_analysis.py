@@ -10,12 +10,12 @@ def accum_ratiop(
     column: str | Selector | list[str],
     values: str,
     *,
-    filter: str | pl.Expr | None = None,
+    f: str | pl.Expr | None = None,
     norm_by: Literal["R", "C"] | None = None
 ) -> pl.DataFrame:
     """Pivot with percentages and marginal totals."""
-    if filter is not None:
-        df = df.with_columns(pl.when(filter).then(values).otherwise(0))
+    if f is not None:
+        df = df.with_columns(pl.when(f).then(values).otherwise(0))
     row = df.select(row).columns
     column = df.select(column).columns
     pv = df.pivot(on=column, index=row, values=values, aggregate_function="sum")
@@ -118,10 +118,10 @@ def accum_ratio(
     column: str | list[str],
     val1: str | pl.Expr,
     val2: str | pl.Expr,
-    filter: str | pl.Expr | None = None,
+    f: str | pl.Expr | None = None,
 ) -> AccumRatioResult:
-    if filter is not None:
-        df = df.filter(filter)
+    if f is not None:
+        df = df.filter(f)
 
     df = df.with_columns(__num__=val1, __denom__=val2)
 

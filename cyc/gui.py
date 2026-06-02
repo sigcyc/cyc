@@ -169,7 +169,7 @@ def _derive_labels(sources: list[Source]) -> list[str]:
     return labels
 
 
-def gs(x: pl.Series, y: pl.Series, k: int = 10, filter=None) -> alt.LayerChart:
+def gs(x: pl.Series, y: pl.Series, k: int = 10, f=None) -> alt.LayerChart:
     """
     Plot a graph with the following
     1. A linear regression line of x, y and add coefficient, intercept, R2 on the graph
@@ -178,8 +178,8 @@ def gs(x: pl.Series, y: pl.Series, k: int = 10, filter=None) -> alt.LayerChart:
     x, y can be very big (>1M points). so the efficiency is vital
     """
     df = pl.DataFrame({"x": x, "y": y})
-    if filter is not None:
-        df = df.filter(filter)
+    if f is not None:
+        df = df.filter(f)
     df = df.drop_nulls()
     x_arr = df["x"].to_numpy().reshape(-1, 1)
     y_arr = df["y"].to_numpy()

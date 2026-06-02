@@ -81,7 +81,7 @@ def test_accum_ratio_filters_before_ratio():
         "keep": [True, False],
     })
 
-    result = accum_ratio(df, "cat", "grp", "num", "denom", filter=pl.col("keep")).df
+    result = accum_ratio(df, "cat", "grp", "num", "denom", f=pl.col("keep")).df
 
     assert result[0, "X"] == 0.1
     assert result[0, "row_sum"] == 100
