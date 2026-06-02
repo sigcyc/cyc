@@ -169,18 +169,17 @@ def _derive_labels(sources: list[Source]) -> list[str]:
     return labels
 
 
-def gs(x: pl.Series, y: pl.Series, k: int = 10, f=None) -> alt.LayerChart:
+def gs(df: pl.DataFrame, x: pl.Expr, y: pl.Expr, k: int = 10, f: pl.Expr = pl.lit(True)) -> alt.LayerChart:
     """
     Plot a graph with the following
     1. A linear regression line of x, y and add coefficient, intercept, R2 on the graph
     2. Divide x into k buckets. For each bucket, plot the point average(x) and average(y)
 
-    x, y can be very big (>1M points). so the efficiency is vital
+    df may be very big (>1M rows), so efficiency is vital. x, y, and f are
+    expressions evaluated against df; f selects which rows to include.
     """
-    df = pl.DataFrame({"x": x, "y": y})
-    if f is not None:
-        df = df.filter(f)
-    df = df.drop_nulls()
+    x_title, y_title = x.meta.output_name(), y.meta.output_name()
+    df = df.filter(f).select(x=x, y=y).drop_nulls()
     x_arr = df["x"].to_numpy().reshape(-1, 1)
     y_arr = df["y"].to_numpy()
 
@@ -201,8 +200,8 @@ def gs(x: pl.Series, y: pl.Series, k: int = 10, f=None) -> alt.LayerChart:
         alt.Chart(bucketed)
         .mark_circle(size=60)
         .encode(
-            x=alt.X("x:Q", title=x.name, scale=alt.Scale(zero=False)),
-            y=alt.Y("y:Q", title=y.name, scale=alt.Scale(zero=False)),
+            x=alt.X("x:Q", title=x_title, scale=alt.Scale(zero=False)),
+            y=alt.Y("y:Q", title=y_title, scale=alt.Scale(zero=False)),
             tooltip=["x:Q", "y:Q"],
         )
     )

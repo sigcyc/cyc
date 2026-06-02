@@ -5,7 +5,7 @@ import polars as pl
 import altair as alt
 from numba import njit
 from .marble import marble
-from .gui import PlotSpec
+from .gui import PlotSpec, gs
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(2)
@@ -178,3 +178,4 @@ setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "to_df", _to_df)
 setattr(pl.DataFrame, "marble", marble)
 setattr(pl.DataFrame, "sort_cut", _sort_cut)
+setattr(pl.DataFrame, "gs", gs)
