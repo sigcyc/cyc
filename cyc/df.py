@@ -1,7 +1,6 @@
 from __future__ import annotations
 import functools
 from datetime import datetime
-from itertools import zip_longest
 from typing import Any, Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec, overload
 from .types import SymType
 import polars as pl
@@ -29,10 +28,16 @@ def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
         df1 = df1.df
     if isinstance(df2, Df):
         df2 = df2.df
-    df1 = df1.rename({c: f"{c}_x" for c in df1.columns})
-    df2 = df2.rename({c: f"{c}_y" for c in df2.columns})
-    interleaved = [c for pair in zip_longest(df1.columns, df2.columns) for c in pair if c is not None]
-    return pl.concat([df1, df2], how="horizontal").select(interleaved)
+    # Shared names get a "_2" twin right after the df1 column; the rest of df2
+    # follows at the end, df1 order preserved.
+    shared = set(df1.columns) & set(df2.columns)
+    rest = [c for c in df2.columns if c not in shared]
+    df2 = df2.rename({c: f"{c}_2" for c in shared})
+    order = []
+    for c in df1.columns:
+        order += [c, f"{c}_2"] if c in shared else [c]
+    order = order + rest
+    return pl.concat([df1, df2], how="horizontal").select(order)
 
 def wrap_df_func(
     func: Callable[Concatenate[pl.DataFrame, P], Any],
@@ -150,6 +155,7 @@ class Df(_DfBase):
     add_spot = wrap_df_func(add_spot)
     accum_ratio = wrap_df_func(accum_ratio)
     accum_ratiop = wrap_df_func(accum_ratiop)
+    concat_df2 = wrap_df_func(concat_df2)
 
     def s(
         self,
