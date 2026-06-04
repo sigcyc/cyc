@@ -169,15 +169,19 @@ def _derive_labels(sources: list[Source]) -> list[str]:
     return labels
 
 
-def gs(df: pl.DataFrame, x: pl.Expr, y: pl.Expr, k: int = 10, f: pl.Expr = pl.lit(True)) -> alt.LayerChart:
+def gs(df: pl.DataFrame, x: str | pl.Expr, y: str | pl.Expr, k: int = 10, f: pl.Expr = pl.lit(True)) -> alt.LayerChart:
     """
     Plot a graph with the following
     1. A linear regression line of x, y and add coefficient, intercept, R2 on the graph
     2. Divide x into k buckets. For each bucket, plot the point average(x) and average(y)
 
-    df may be very big (>1M rows), so efficiency is vital. x, y, and f are
-    expressions evaluated against df; f selects which rows to include.
+    df may be very big (>1M rows), so efficiency is vital. x and y are column
+    names or expressions evaluated against df; f is a filter selecting rows.
     """
+    if isinstance(x, str):
+        x = pl.col(x)
+    if isinstance(y, str):
+        y = pl.col(y)
     x_title, y_title = x.meta.output_name(), y.meta.output_name()
     df = df.filter(f).select(x=x, y=y).drop_nulls()
     x_arr = df["x"].to_numpy().reshape(-1, 1)
