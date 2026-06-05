@@ -85,7 +85,7 @@ def _print_all(df: pl.DataFrame) -> None:
         fmt_str_lengths=fmt_str_lengths,
     ):
         for i, cols in enumerate(groups):
-            print(repr(df.select(cols)))
+            print(repr(df.select(pl.int_range(pl.len()).alias("#"), *cols)))
             if i < len(groups) - 1:
                 print()
 
