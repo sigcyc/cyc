@@ -106,7 +106,7 @@ class AccumRatioResult:
         self.df =  self.df.with_columns(__i=i).with_columns(
             pl.when(pl.col("__i").is_not_null())
             .then(pl.col(c).round(2).cast(pl.String).fill_null("") + pl.format(" ({},{})", "__i", pl.lit(j)))
-            .otherwise(pl.col(c).cast(pl.String)).alias(c)
+            .otherwise(pl.col(c).round(2).cast(pl.String)).alias(c)
             for j, c in enumerate(val_cols)
         ).drop("__i")
         return self

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Iterable, Literal, cast
 
 import polars as pl
 import altair as alt
 from sklearn.linear_model import LinearRegression
+
+if TYPE_CHECKING:
+    from polars._typing import IntoExpr
 
 
 Source = tuple[pl.DataFrame, list[str], list[str]]  # (df, left_cols, right_cols)
@@ -169,59 +172,82 @@ def _derive_labels(sources: list[Source]) -> list[str]:
     return labels
 
 
-def gs(df: pl.DataFrame, x: str | pl.Expr, y: str | pl.Expr, k: int = 10, f: pl.Expr = pl.lit(True)) -> alt.LayerChart:
+def gs(
+    df: pl.DataFrame,
+    x: str | pl.Expr,
+    y: str | pl.Expr,
+    k: int = 10,
+    f: pl.Expr = pl.lit(True),
+    group_by: IntoExpr | Iterable[IntoExpr] | None = None,
+) -> alt.LayerChart:
     """
-    Plot a graph with the following
-    1. A linear regression line of x, y and add coefficient, intercept, R2 on the graph
-    2. Divide x into k buckets. For each bucket, plot the point average(x) and average(y)
+    Scatter + linear-regression line of y against x.
 
-    df may be very big (>1M rows), so efficiency is vital. x and y are column
-    names or expressions evaluated against df; f is a filter selecting rows.
+    1. Divide x into k buckets; plot (mean x, mean y) per bucket as points.
+    2. Overlay the regression line. Each series' fit lives in its legend label:
+       "<group_>{slope}x{intercept}_r2={r2}_n={rows}".
+
+    x and y are column names or expressions evaluated against df; f filters rows.
+    group_by (like pl.DataFrame.group_by) draws one colored series per group.
     """
     if isinstance(x, str):
         x = pl.col(x)
     if isinstance(y, str):
         y = pl.col(y)
     x_title, y_title = x.meta.output_name(), y.meta.output_name()
-    df = df.filter(f).select(x=x, y=y).drop_nulls()
-    x_arr = df["x"].to_numpy().reshape(-1, 1)
-    y_arr = df["y"].to_numpy()
+    df = df.filter(f)
+    groups = [((), df)] if group_by is None else df.group_by(group_by)
 
-    model = LinearRegression().fit(x_arr, y_arr)
-    coef, intercept = model.coef_[0], model.intercept_
-    r2 = model.score(x_arr, y_arr)
+    rows = []  # (key, cells, bucketed, line); cells become the legend columns
+    for key, sub in groups:
+        xy = sub.select(x=x, y=y).drop_nulls()
+        if xy.is_empty():
+            continue
+        x_arr = xy["x"].to_numpy().reshape(-1, 1)
+        y_arr = xy["y"].to_numpy()
+        model = LinearRegression().fit(x_arr, y_arr)
+        coef, intercept, r2 = model.coef_[0], model.intercept_, model.score(x_arr, y_arr)
 
-    # Bucket aggregation in polars
-    bucketed = (
-        df.with_columns(
-            ((pl.col("x").rank() - 1) * k // pl.len()).alias("bucket")
+        bucketed = (
+            xy.with_columns(((pl.col("x").rank() - 1) * k // pl.len()).alias("bucket"))
+            .group_by("bucket")
+            .agg(pl.col("x").mean().alias("x"), pl.col("y").mean().alias("y"))
+            .sort("bucket")
         )
-        .group_by("bucket")
-        .agg(pl.col("x").mean().alias("x"), pl.col("y").mean().alias("y"))
-        .sort("bucket")
+        x_min, x_max = bucketed["x"].min(), bucketed["x"].max()
+        line = pl.DataFrame({"x": [x_min, x_max], "y": [coef * x_min + intercept, coef * x_max + intercept]})
+
+        cells = [f"{coef:.2g}x{intercept:+.2g}", f"r2={r2:.2g}", f"n={xy.height}"]
+        if group_by is not None:
+            cells.insert(0, "_".join(map(str, key)))
+        rows.append((key, cells, bucketed, line))
+
+    # Pad each column to a shared width so the monospace legend reads as a table
+    # (x-term, r2, n line up). Legend order follows the color domain, so sort the
+    # few group keys here instead of the whole frame.
+    widths = [max(len(r[1][i]) for r in rows) for i in range(len(rows[0][1]))]
+    points_parts, line_parts, labels = [], [], []
+    for key, cells, bucketed, line in rows:
+        label = "  ".join(c.ljust(w) for c, w in zip(cells, widths))
+        labels.append((key, label))
+        points_parts.append(bucketed.with_columns(pl.lit(label).alias("series")))
+        line_parts.append(line.with_columns(pl.lit(label).alias("series")))
+
+    domain = [label for _, label in sorted(labels)]
+    color = alt.Color(
+        "series:N",
+        scale=alt.Scale(domain=domain, scheme="tableau20"),
+        legend=alt.Legend(title=None, labelFont="monospace", labelLimit=1000),
     )
     points = (
-        alt.Chart(bucketed)
+        alt.Chart(pl.concat(points_parts))
         .mark_circle(size=60)
         .encode(
             x=alt.X("x:Q", title=x_title, scale=alt.Scale(zero=False)),
             y=alt.Y("y:Q", title=y_title, scale=alt.Scale(zero=False)),
-            tooltip=["x:Q", "y:Q"],
+            color=color,
+            tooltip=["series:N", "x:Q", "y:Q"],
         )
     )
-
-    x_min, x_max = bucketed["x"].min(), bucketed["x"].max()
-    line_df = pl.DataFrame(
-        {
-            "x": [x_min, x_max],
-            "y": [coef * x_min + intercept, coef * x_max + intercept],
-        }
-    )
-    line = (
-        alt.Chart(line_df)
-        .mark_line(color="red", strokeWidth=2)
-        .encode(x="x:Q", y="y:Q")
-    )
-
-    title = f"y = {coef:.4g}x + {intercept:.4g}, R² = {r2:.4f}, n = {len(df):,}"
-    return (points + line).properties(width=600, height=400, title=title).interactive()
+    line = alt.Chart(pl.concat(line_parts)).mark_line(strokeWidth=2).encode(x="x:Q", y="y:Q", color=color)
+    return (points + line).properties(width=600, height=400).interactive()
