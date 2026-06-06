@@ -6,23 +6,24 @@ import altair as alt
 from numba import njit
 from .marble import marble
 from .gui import PlotSpec, gs
+from .util_system import is_notebook
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
 pl.Config.set_float_precision(2)
 pl.Config.set_tbl_cols(10)
 pl.Config.set_tbl_rows(15)
 alt.data_transformers.enable("vegafusion")
-try:
-    get_ipython()  # type: ignore
+if is_notebook():
+    # Notebook renders altair inline; no real terminal, so use a wide default.
+    def get_terminal_size():
+        return 200
+
+else:
+    # Terminal / script: open charts in a browser and use the real terminal width.
     alt.renderers.enable("browser")
 
     def get_terminal_size():
         return shutil.get_terminal_size().columns - 10
-
-except NameError:
-
-    def get_terminal_size():
-        return 200
 
 
 def _print_transpose(df: pl.DataFrame) -> None:
