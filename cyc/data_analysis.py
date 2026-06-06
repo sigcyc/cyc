@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Iterable, Literal
 import polars as pl
 from polars.selectors import Selector
 
@@ -90,13 +90,25 @@ class AccumRatioResult:
         with pl.Config(tbl_rows=-1, tbl_cols=-1):
             return repr(self.df)
 
-    def filter(self, df: pl.DataFrame,  row: int | None, column: int | None) -> pl.DataFrame:
-        exprs = []
+    def filter(
+        self, df: pl.DataFrame, row: int | Iterable[int] | None, column: int | Iterable[int] | None
+    ) -> pl.DataFrame:
+        """Keep rows in any of the given row group(s) AND any of the given column group(s).
+
+        row/column may be a single index, an iterable of indices, or None (no constraint).
+        """
+        def any_of(cols, keys, idx):
+            idx = [idx] if isinstance(idx, int) else idx
+            # inner all_horizontal: a row is in group i iff every key column equals group i's values (AND)
+            # outer any_horizontal: keep the row if it falls in at least one requested group (OR)
+            return pl.any_horizontal([pl.all_horizontal([c == v for c, v in zip(cols, keys[i])]) for i in idx])
+
+        conds = []
         if row is not None:
-            exprs += [c == v for c, v in zip(self.row, self.row_keys[row])]
+            conds.append(any_of(self.row, self.row_keys, row))
         if column is not None:
-            exprs += [c == v for c, v in zip(self.column, self.column_keys[column])]
-        return df.filter(pl.all_horizontal(exprs))
+            conds.append(any_of(self.column, self.column_keys, column))
+        return df.filter(pl.all_horizontal(conds))
 
     def add_index(self) -> "AccumRatioResult":
         """Display copy: each value cell shows `value (row,column)` for filter()."""
