@@ -1,6 +1,6 @@
 import pytest
 
-from cyc.time_util import parse_time_to_ns, parse_dates
+from cyc.util_time import parse_time_to_ns, parse_dates
 
 
 def _ns(hours: int, minutes: int, seconds: int, nanos: int = 0) -> int:

@@ -3,7 +3,7 @@ import subprocess
 from multiprocessing import Pool
 from pathlib import Path
 from cyc.config import get_calendar
-from cyc.time_util import parse_dates
+from cyc.util_time import parse_dates
 
 
 def _run_one(args: tuple[str, str, list[str]]) -> tuple[str, subprocess.CompletedProcess]:

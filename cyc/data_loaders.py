@@ -1,7 +1,7 @@
 from .types import SymType
 import polars as pl
 from .config import get_data_path, get_calendar, get_file_layout
-from .time_util import parse_dates
+from .util_time import parse_dates
 
 
 def _get_date_list(df_type: str, date_str: str | pl.Series) -> list[str]:

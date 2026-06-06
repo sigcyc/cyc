@@ -1,8 +1,12 @@
 from typing import Sequence
 from functools import reduce
+import tempfile
+import webbrowser
 
 import polars as pl
 import treescope
+
+from .util_system import is_notebook
 
 
 def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = (), sliders: Sequence[int] = ()):
@@ -40,7 +44,7 @@ def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = 
     df = reduce(lambda a, b: a.join(b, how="cross"), key_df_list).join(df, on=list(axis_labels.values()), how="left")
     data = df[:, -1].reshape(tuple(shapes)).to_numpy()
 
-    return treescope.render_array(
+    fig = treescope.render_array(
         data,
         columns=columns,
         rows=rows,
@@ -48,6 +52,14 @@ def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = 
         axis_labels=axis_labels,
         axis_item_labels=axis_item_labels,
     )
+    if is_notebook():
+        return fig
+    # Terminal: treescope can't draw inline, so write a self-contained page and open it.
+    path = tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8")
+    path.write(treescope.render_to_html(fig))
+    path.close()
+    webbrowser.open(f"file://{path.name}")
+    return path.name
 
 
 if __name__ == "__main__":

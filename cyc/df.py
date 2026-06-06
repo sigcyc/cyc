@@ -9,7 +9,7 @@ from .data_analysis import accum_ratiop, accum_ratio
 from .config import get_df_type_dict
 
 from .data_loaders import load_data
-from .time_util import parse_time_to_ns
+from .util_time import parse_time_to_ns
 
 
 _DfBase = pl.DataFrame if TYPE_CHECKING else object

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from .time_util import next_trading_day, previous_trading_day
+from .util_time import next_trading_day, previous_trading_day
 from .data_loaders import load_data
 
 
