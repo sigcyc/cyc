@@ -165,6 +165,7 @@ class Df(_DfBase):
         o: Optional[list[str]] = None,  # options in df_types.yaml
         c: Optional[list[str] | str] = None,  # column names
         r: Optional[str] = None,  # regular expression
+        a: Optional[list[pl.Series | pl.Expr]] = None,  # extra with_columns exprs, always displayed
         f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
         sample: Optional[int] = None,
@@ -187,7 +188,7 @@ class Df(_DfBase):
             time_end: "9:40" or "9:40:03.5"
             date: "20250102"
         """
-        df = self.df
+        df = self.df.with_columns(a) if a else self.df
         col_list = [c for c in ["sym", "time"] if c in df.columns]
         col_list_cumsum = []
 
@@ -197,7 +198,8 @@ class Df(_DfBase):
             names += df_type_dict["cols"][col_group]
         c = [c] if isinstance(c, str) else c
         names += c or []
-        if not (o or c or r):
+        names += [col for col in df.columns if col not in self.df.columns] # for a
+        if not (o or c or r or a):
             names = df.columns
 
         for col_name in names:

@@ -17,7 +17,7 @@ try:
     alt.renderers.enable("browser")
 
     def get_terminal_size():
-        return shutil.get_terminal_size().columns - 5
+        return shutil.get_terminal_size().columns - 10
 
 except NameError:
 
