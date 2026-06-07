@@ -60,9 +60,11 @@ def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = 
     )
     if is_notebook():
         return fig
-    # Terminal: treescope can't draw inline, so write a self-contained page and open it.
+    # Terminal: write the figure's own HTML (the expanded, self-contained array viz
+    # that a notebook shows inline) and open it. render_to_html instead wraps the
+    # figure in treescope's page chrome, which is what hides it behind a collapsible.
     path = tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8")
-    path.write(treescope.render_to_html(fig))
+    path.write(f"<!doctype html>\n<meta charset='utf-8'>\n{fig._repr_html_()}")
     path.close()
     webbrowser.open(f"file://{path.name}")
     return path.name
