@@ -14,13 +14,20 @@ def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = 
     Render a DataFrame as a treescope array visualization.
 
     Args:
-        df: A Polars DataFrame in long format with categorical + value columns.
-            It must have a value column
+        df: A long-format Polars DataFrame whose axis columns (those named by
+            columns/rows/sliders) uniquely identify each row, plus a value column.
         columns: Indices of columns whose unique values become the column axis.
         rows: Indices of columns whose unique values become the row axis.
         sliders: Indices of columns whose unique values become slider dimensions.
 
-    The remaining column (not in rows/columns/sliders) is treated as the value.
+    Value column: not chosen by name — it is read positionally as the last column
+    after the axis keys are cross-joined into a grid and df is joined back on (see
+    below). That is the last non-axis column of df; if df has more than one non-axis
+    column, only this last one is plotted and the rest are silently ignored.
+
+    The axis columns must uniquely identify each row (one row per axis-value
+    combination). Otherwise the left join produces multiple rows per cell and the
+    final reshape raises a size-mismatch error.
     """
 
     # Collect all grouping columns in order: sliders, rows, columns
@@ -39,8 +46,7 @@ def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = 
         axis_item_labels[i] = key_df.to_series().cast(pl.String).to_list()
         axis_labels[i] = col_name
 
-    # Create keys
-
+    # create keys
     df = reduce(lambda a, b: a.join(b, how="cross"), key_df_list).join(df, on=list(axis_labels.values()), how="left")
     data = df[:, -1].reshape(tuple(shapes)).to_numpy()
 
