@@ -9,7 +9,7 @@ import treescope
 from .util_system import is_notebook
 
 
-def marble(df: pl.DataFrame, columns: Sequence[int] = (), rows: Sequence[int] = (), sliders: Sequence[int] = ()):
+def marble(df: pl.DataFrame, rows: Sequence[int] = (), columns: Sequence[int] = (), sliders: Sequence[int] = ()):
     """
     Render a DataFrame as a treescope array visualization.
 
