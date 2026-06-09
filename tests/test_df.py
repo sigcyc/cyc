@@ -148,6 +148,44 @@ class TestPlotSpec:
         # time first, then one row per series
         assert fields == ["time", "TSLA_a", "TSLA_b", "UBER_a", "UBER_b"]
 
+    def test_filter_tuple_plots_column_per_filter(self):
+        df = pl.concat([self._make_df("TSLA"), self._make_df("UBER")])
+        spec = df.p([
+            ("a", (pl.col("sym") == "TSLA").alias("TSLA")),
+            ("a", (pl.col("sym") == "UBER").alias("UBER")),
+        ])
+        d = spec._build().to_dict()
+        domain = d["layer"][0]["encoding"]["color"]["scale"]["domain"]
+        assert domain == ["a_TSLA", "a_UBER"]
+        data = d["datasets"][d["layer"][0]["data"]["name"]]
+        tsla = [r["value"] for r in data if r["series"] == "a_TSLA"]
+        # masked to nulls outside the filter; vega drops nulls when drawing lines
+        assert [v for v in tsla if v is not None] == [0.0, 1.0, 2.0, 3.0, 4.0]
+        assert tsla.count(None) == 5
+
+    def test_filter_tuple_default_name_and_int_index(self):
+        df = pl.concat([self._make_df("TSLA"), self._make_df("UBER")])
+        # column 2 is "a"; unaliased filter names the series after its root column
+        spec = df.p([(2, pl.col("sym") == "TSLA")])
+        src, left_cols, _ = spec.sources[0]
+        assert left_cols == ["a_sym"]
+        # rows where every plotted column is null are dropped up front
+        assert len(src) == 5
+        assert src["a_sym"].null_count() == 0
+
+    def test_filter_tuple_mixes_with_plain_columns(self):
+        df = pl.concat([self._make_df("TSLA"), self._make_df("UBER")])
+        spec = df.p([("a", (pl.col("sym") == "TSLA").alias("TSLA"))], ["b"])
+        src, left_cols, right_cols = spec.sources[0]
+        assert (left_cols, right_cols) == (["a_TSLA"], ["b"])
+        # "b" is non-null everywhere, so no row is all-null and none are dropped
+        assert len(src) == 10
+
+    def test_filter_tuples_with_colliding_names_raise(self):
+        df = pl.concat([self._make_df("TSLA"), self._make_df("UBER")])
+        with pytest.raises(pl.exceptions.PolarsError, match="duplicate"):
+            df.p([("a", pl.col("sym") == "TSLA"), ("a", pl.col("sym") == "UBER")])
+
     def test_delegates_altair_methods_via_getattr(self):
         spec = self._make_df().p(["a"], ["b"])
         # .properties is an altair method; __getattr__ routes through _build()

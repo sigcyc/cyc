@@ -1,7 +1,9 @@
 import polars as pl
 from cyc.marble import marble
 
-def test_marble():
+def test_marble(monkeypatch):
+    opened = []
+    monkeypatch.setattr("webbrowser.open", opened.append)
 
     df = pl.DataFrame({
         "cat": ["A", "A", "B", "B", "A", "C"],
@@ -10,5 +12,7 @@ def test_marble():
     })
     df = df.group_by(['cat', 'grp']).agg(pl.col('num').first())
 
-    marble(df, [1], [0])
+    path = marble(df, [1], [0])
+
+    assert opened == [f"file://{path}"]
 

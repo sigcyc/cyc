@@ -97,8 +97,8 @@ def _des(df: pl.DataFrame) -> pl.DataFrame:
 
 def _plot(
     df: pl.DataFrame,
-    left_axis: list[int | str],
-    right_axis: Optional[list[int | str]] = None,
+    left_axis: list[int | str | tuple[int | str, pl.Expr]],
+    right_axis: Optional[list[int | str | tuple[int | str, pl.Expr]]] = None,
     width: int = 600,
 ) -> PlotSpec:
     """
@@ -108,13 +108,37 @@ def _plot(
     `+` to combine sources with shared left/right y-scales and color cycling.
 
     Args:
-        left_axis: column index or name to plot on the left y-axis
-        right_axis: column index or name to plot on the right y-axis
+        left_axis: column index or name to plot on the left y-axis. A
+            (column, filter) tuple plots the column only where the filter
+            expression holds, as a series named "{column}_{filter_name}" —
+            alias the filter to control the name:
+            ("spot", (pl.col("sym") == "TSLA").alias("TSLA")) -> "spot_TSLA"
+        right_axis: same as left_axis, on the right y-axis
     """
     right_axis = right_axis or []
-    left_cols = [df.columns[i] if isinstance(i, int) else i for i in left_axis]
-    right_cols = [df.columns[i] if isinstance(i, int) else i for i in right_axis]
-    return PlotSpec([(df, left_cols, right_cols)], width=width)
+
+    def resolve(item: int | str | tuple[int | str, pl.Expr]) -> tuple[str, Optional[pl.Expr]]:
+        """Resolve an axis entry to (series_name, masked_expr); plain columns need no expr."""
+        filter_expr = None
+        if isinstance(item, tuple):
+            item, filter_expr = item
+        column = df.columns[item] if isinstance(item, int) else item
+        if filter_expr is None:
+            return column, None
+        name = f"{column}_{filter_expr.meta.output_name()}"
+        return name, pl.when(filter_expr).then(pl.col(column)).alias(name)
+
+    left = [resolve(item) for item in left_axis]
+    right = [resolve(item) for item in right_axis]
+    left_cols = [name for name, _ in left]
+    right_cols = [name for name, _ in right]
+    filtered_columns = [expr for _, expr in left + right if expr is not None]
+    # Rows where every plotted column is null paint nothing but eat the
+    # downsampling budget in PlotSpec._build, so drop them up front.
+    plotted = df.with_columns(filtered_columns).filter(
+        pl.any_horizontal(pl.col(c).is_not_null() for c in dict.fromkeys(left_cols + right_cols))
+    )
+    return PlotSpec([(plotted, left_cols, right_cols)], width=width)
 
 
 def _to_df(df: pl.DataFrame, df_type="default"):
