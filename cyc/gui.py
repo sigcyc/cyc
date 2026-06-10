@@ -140,12 +140,17 @@ class PlotSpec:
 
 
 def _stack(df: pl.DataFrame, col: str, name: str) -> pl.DataFrame:
-    """Select (time, series=name, value=col) from `df` — one series in long format."""
+    """Select (time, series=name, value=col) from `df` — one series in long format.
+
+    Null values are dropped: vega-lite breaks line paths at invalid points, so a
+    series interleaved with nulls (e.g. a filter-masked column from `_plot`)
+    would render as disconnected invisible fragments instead of a line.
+    """
     return df.select(
         pl.col("time"),
         pl.lit(name).alias("series"),
         pl.col(col).cast(pl.Float64).alias("value"),
-    )
+    ).drop_nulls("value")
 
 
 def _derive_labels(sources: list[Source]) -> list[str]:

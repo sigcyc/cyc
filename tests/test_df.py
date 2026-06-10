@@ -159,9 +159,9 @@ class TestPlotSpec:
         assert domain == ["a_TSLA", "a_UBER"]
         data = d["datasets"][d["layer"][0]["data"]["name"]]
         tsla = [r["value"] for r in data if r["series"] == "a_TSLA"]
-        # masked to nulls outside the filter; vega drops nulls when drawing lines
-        assert [v for v in tsla if v is not None] == [0.0, 1.0, 2.0, 3.0, 4.0]
-        assert tsla.count(None) == 5
+        # masked nulls are dropped at stack time: interleaved nulls would break
+        # the vega line path into invisible single-point fragments
+        assert tsla == [0.0, 1.0, 2.0, 3.0, 4.0]
 
     def test_filter_tuple_default_name_and_int_index(self):
         df = pl.concat([self._make_df("TSLA"), self._make_df("UBER")])
