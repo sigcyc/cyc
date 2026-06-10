@@ -30,31 +30,33 @@ def marble(df: pl.DataFrame, rows: Sequence[int] = (), columns: Sequence[int] = 
     final reshape raises a size-mismatch error.
     """
 
-    # Collect all grouping columns in order: sliders, rows, columns
     all_axes = list(columns) + list(rows) + list(sliders)
 
-    key_df_list = [pl.DataFrame()] * len(all_axes)
-    shapes = [-1] * len(all_axes)
-    axis_item_labels = {}
+    # Array axis `position` holds df column all_axes[position]; the caller's df
+    # column indices are remapped to those positions for treescope below.
+    key_df_list = []
+    shapes = []
     axis_labels = {}
-
-    for i in all_axes:
-        col_name = df.columns[i]
+    axis_item_labels = {}
+    for position, column_index in enumerate(all_axes):
+        col_name = df.columns[column_index]
         key_df = df.select(col_name).unique().sort(col_name)
-        key_df_list[i] = key_df
-        shapes[i] = len(key_df)
-        axis_item_labels[i] = key_df.to_series().cast(pl.String).to_list()
-        axis_labels[i] = col_name
+        key_df_list.append(key_df)
+        shapes.append(len(key_df))
+        axis_labels[position] = col_name
+        axis_item_labels[position] = key_df.to_series().cast(pl.String).to_list()
 
-    # create keys
-    df = reduce(lambda a, b: a.join(b, how="cross"), key_df_list).join(df, on=list(axis_labels.values()), how="left")
+    # maintain_order="left": the reshape assumes rows stay in cross-product order.
+    df = reduce(lambda a, b: a.join(b, how="cross"), key_df_list).join(
+        df, on=list(axis_labels.values()), how="left", maintain_order="left"
+    )
     data = df[:, -1].reshape(tuple(shapes)).to_numpy()
 
     fig = treescope.render_array(
         data,
-        columns=columns,
-        rows=rows,
-        sliders=sliders,
+        columns=list(range(len(columns))),
+        rows=list(range(len(columns), len(columns) + len(rows))),
+        sliders=list(range(len(columns) + len(rows), len(all_axes))),
         axis_labels=axis_labels,
         axis_item_labels=axis_item_labels,
     )
@@ -63,22 +65,8 @@ def marble(df: pl.DataFrame, rows: Sequence[int] = (), columns: Sequence[int] = 
     # Terminal: write the figure's own HTML (the expanded, self-contained array viz
     # that a notebook shows inline) and open it. render_to_html instead wraps the
     # figure in treescope's page chrome, which is what hides it behind a collapsible.
-    path = tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8")
-    path.write(f"<!doctype html>\n<meta charset='utf-8'>\n{fig._repr_html_()}")
-    path.close()
-    webbrowser.open(f"file://{path.name}")
-    return path.name
-
-
-if __name__ == "__main__":
-    # saved_path = save_render_array_example()
-    # print(f"Saved Treescope render to {saved_path.resolve()}")
-
-    df = pl.DataFrame(
-        {
-            "cat": ["A", "A", "B", "B", "A"],
-            "grp": ["X", "Y", "X", "Y", "X"],
-            "num": [10, 20, 30, 40, 10],
-        }
-    )
-    df.group_by(["cat", "grp"]).agg(pl.col("num").first())
+    html_file = tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8")
+    html_file.write(f"<!doctype html>\n<meta charset='utf-8'>\n{fig._repr_html_()}")
+    html_file.close()
+    webbrowser.open(f"file://{html_file.name}")
+    return html_file.name

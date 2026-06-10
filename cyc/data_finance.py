@@ -20,11 +20,8 @@ def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str] |
         DataFrame with sym, date, and requested fields
     """
     if isinstance(fields, str):
-        mapping = {fields: fields}
-    elif isinstance(fields, dict):
-        mapping = fields
-    else:
-        mapping = {f: f for f in fields}
+        fields = [fields]
+    mapping = fields if isinstance(fields, dict) else {f: f for f in fields}
     stock_data = load_data("stock_data_day", self[date].unique()).collect()
     stock_data = stock_data.select(
         pl.col("ticker").alias(sym),

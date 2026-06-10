@@ -1,14 +1,16 @@
 from __future__ import annotations
+
 import functools
 from datetime import datetime
-from typing import Any, Optional, TYPE_CHECKING, Callable, Concatenate, ParamSpec, overload
-from .types import SymType
-import polars as pl
-from .data_finance import add_stock, add_spot
-from .data_analysis import accum_ratiop, accum_ratio
-from .config import get_df_type_dict
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpec, overload
 
+import polars as pl
+
+from .config import get_df_type_dict
+from .data_analysis import accum_ratio, accum_ratiop
+from .data_finance import add_spot, add_stock
 from .data_loaders import load_data
+from .types import SymType
 from .util_time import parse_time_to_ns
 
 
@@ -36,7 +38,7 @@ def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
     order = []
     for c in df1.columns:
         order += [c, f"{c}_2"] if c in shared else [c]
-    order = order + rest
+    order += rest
     return pl.concat([df1, df2], how="horizontal").select(order)
 
 def wrap_df_func(
@@ -61,7 +63,7 @@ class Df(_DfBase):
     df: pl.DataFrame  # unmodifiable except in enrich / load_sidecars
     df_type: str
 
-    def __init__(self, df: pl.DataFrame, df_type="default") -> None:
+    def __init__(self, df: pl.DataFrame, df_type: str = "default") -> None:
         self.df = df
         self.df_type = df_type
 
@@ -101,7 +103,7 @@ class Df(_DfBase):
                     .sort("date")
                 )
                 print(diff)
-                raise ValueError(f"Sidecar length doesn't match spine")
+                raise ValueError("Sidecar length doesn't match spine")
             new_columns = []
             for col in sidecar_df.get_columns():
                 if col.name in protected and col.name in self.df.columns:
@@ -169,15 +171,15 @@ class Df(_DfBase):
         f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
         sample: Optional[int] = None,
-    ) -> "Df":
+    ) -> Df:
         """
         Filter the columns to sym + time + col_names, then
 
         Filter Df by
-        1. self.sym == sym is sym is not None
+        1. self.sym == sym if sym is not None
         2. self.time is greater than time_start if time_start is not None
         3. self.time is less than time_end if time_end is not None
-        3. date of self.time equal to date if date is not None
+        4. date of self.time equal to date if date is not None
 
         col_names: list of column names. We support operation on column names when the name contains ":".
         For example, if the name is "volume:cumsum", then the function will run a cumsum on that column
@@ -189,7 +191,7 @@ class Df(_DfBase):
             date: "20250102"
         """
         df = self.df.with_columns(a) if a else self.df
-        col_list = [c for c in ["sym", "time"] if c in df.columns]
+        col_list = [name for name in ("sym", "time") if name in df.columns]
         col_list_cumsum = []
 
         df_type_dict = get_df_type_dict(self.df_type)
@@ -198,17 +200,16 @@ class Df(_DfBase):
             names += df_type_dict["cols"][col_group]
         c = [c] if isinstance(c, str) else c
         names += c or []
-        names += [col for col in df.columns if col not in self.df.columns] # for a
+        names += [col for col in df.columns if col not in self.df.columns]  # columns added via a
         if not (o or c or r or a):
             names = df.columns
 
         for col_name in names:
             name, *op = col_name.split(":")
-            if not name in col_list:
+            if name not in col_list:
                 col_list.append(name)
-                if len(op) == 0:
-                    continue
-                col_list_cumsum.append(name)
+                if op:
+                    col_list_cumsum.append(name)
 
         df = df.select(
             pl.selectors.by_name(col_list),
@@ -228,10 +229,7 @@ class Df(_DfBase):
                 filters.append(time_since_midnight <= pl.duration(nanoseconds=parse_time_to_ns(time_end)))
 
         if date is not None:
-            if "date" in df.columns:
-                date_expr = pl.col('date')
-            else:
-                date_expr = pl.col("time").dt.date()
+            date_expr = pl.col("date") if "date" in df.columns else pl.col("time").dt.date()
             if "-" in date:
                 start_str, end_str = date.split("-", 1)
                 start_date = datetime.strptime(start_str.strip(), "%Y%m%d").date()

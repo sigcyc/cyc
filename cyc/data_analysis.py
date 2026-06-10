@@ -41,13 +41,13 @@ def accum_ratiop(
     footer = pl.DataFrame(
         [
             {
-                **{c: "col_pct" for c in row},
+                **dict.fromkeys(row, "col_pct"),
                 **{c: col_sum[c][0] / grand_total * 100 for c in val_cols},
                 "row_pct": 100.0,
                 "row_sum": None,
             },
             {
-                **{c: "col_sum" for c in row},
+                **dict.fromkeys(row, "col_sum"),
                 **{c: col_sum[c][0] for c in val_cols},
                 "row_pct": None,
                 "row_sum": grand_total,
@@ -56,6 +56,7 @@ def accum_ratiop(
     )
 
     return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
+
 
 def _is_cut(dtype: pl.DataType) -> bool:
     """A cyc.cut column is a struct carrying both breakpoint and category."""
@@ -112,10 +113,10 @@ class AccumRatioResult:
 
     def add_index(self) -> "AccumRatioResult":
         """Display copy: each value cell shows `value (row,column)` for filter()."""
-        n, labels = len(self.row_keys), len(self.row)
-        val_cols = self.df.columns[labels:labels + len(self.column_keys)]
-        i = pl.Series("__i", list(range(n)) + [None] * (self.df.height - n), dtype=pl.Int64)
-        self.df =  self.df.with_columns(__i=i).with_columns(
+        n_rows, n_row_columns = len(self.row_keys), len(self.row)
+        val_cols = self.df.columns[n_row_columns:n_row_columns + len(self.column_keys)]
+        i = pl.Series("__i", list(range(n_rows)) + [None] * (self.df.height - n_rows), dtype=pl.Int64)
+        self.df = self.df.with_columns(__i=i).with_columns(
             pl.when(pl.col("__i").is_not_null())
             .then(pl.col(c).round(2).cast(pl.String).fill_null("") + pl.format(" ({},{})", "__i", pl.lit(j)))
             .otherwise(pl.col(c).round(2).cast(pl.String)).alias(c)
@@ -168,13 +169,13 @@ def accum_ratio(
     footer = pl.DataFrame(
         [
             {
-                **{c: "col_ratio" for c in row},
+                **dict.fromkeys(row, "col_ratio"),
                 **{c: None if col_sum_denom[c][0] == 0 else col_sum_num[c][0] / col_sum_denom[c][0] for c in val_cols},
                 "row_ratio": grand_num / grand_denom,
                 "row_sum": None,
             },
             {
-                **{c: "col_sum" for c in row},
+                **dict.fromkeys(row, "col_sum"),
                 **{c: col_sum_denom[c][0] for c in val_cols},
                 "row_ratio": None,
                 "row_sum": grand_denom,

@@ -16,3 +16,19 @@ def test_marble(monkeypatch):
 
     assert opened == [f"file://{path}"]
 
+
+def test_marble_axis_columns_anywhere(monkeypatch):
+    """Axis columns need not be the leading df columns (value column sits between)."""
+    opened = []
+    monkeypatch.setattr("webbrowser.open", opened.append)
+
+    df = pl.DataFrame({
+        "cat": ["A", "A", "B", "B"],
+        "num": [10, 20, 30, 40],
+        "grp": ["X", "Y", "X", "Y"],
+    })
+
+    path = marble(df, rows=[2], columns=[0])
+
+    assert opened == [f"file://{path}"]
+

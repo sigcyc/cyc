@@ -86,26 +86,21 @@ def parse_dates(date: str, calendar: str = "nyse") -> list[str]:
     return trading_days
 
 
+def _step_trading_day(day: Date, step: timedelta, calendar: str) -> Date:
+    day += step
+    while not _is_trading_day(day, calendar):
+        day += step
+    return day
+
+
 def previous_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
     """Given date, calculate the previous trading day."""
-
-    def _prev(d: Date) -> Date:
-        d -= timedelta(days=1)
-        while not _is_trading_day(d, calendar):
-            d -= timedelta(days=1)
-        return d
-
-    return date.map_elements(_prev, return_dtype=pl.Date)
+    return date.map_elements(lambda d: _step_trading_day(d, timedelta(days=-1), calendar), return_dtype=pl.Date)
 
 
 def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
     """Given date, calculate the next trading day."""
-    def _next(d: Date) -> Date:
-        d += timedelta(days=1)
-        while not _is_trading_day(d, calendar):
-            d += timedelta(days=1)
-        return d
-    return date.map_elements(_next, return_dtype=pl.Date)
+    return date.map_elements(lambda d: _step_trading_day(d, timedelta(days=1), calendar), return_dtype=pl.Date)
 
 
 @lru_cache(maxsize=1024)

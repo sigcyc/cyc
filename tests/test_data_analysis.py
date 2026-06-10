@@ -1,8 +1,8 @@
 import polars as pl
 import cyc.data_frame_monkey_patch  # noqa: F401 - registers the cyc expression namespace
-from cyc.data_analysis import accum_ratio
+from cyc.data_analysis import accum_ratio, accum_ratiop
 from cyc.data_loaders import load_data
-from cyc.data_analysis import accum_ratiop
+
 
 def test_accum_ratiop():
     df = load_data("stock_data_day", "20241211-20241214").collect()
@@ -12,12 +12,7 @@ def test_accum_ratiop():
         pl.col("close").cut([0, 100, 300, 1000]).alias("bkt_price"),
     )
 
-    res = df.pivot(['date', 'bkt_price'], index=['date', 'bkt_price'], values='volume', aggregate_function='sum')
-
-
     accum_ratiop(df, 'bkt_price', 'date', 'volume')
-
-
 
 
 def test_accum_ratio():

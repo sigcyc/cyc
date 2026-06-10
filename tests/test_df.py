@@ -17,7 +17,7 @@ def test__T_returns_full_column_representation():
     data = {f"col_{i}": np.random.randn(n_rows) for i in range(n_cols)}
     df = Df(pl.DataFrame(data))
 
-    result = df._T
+    df._T
 
 
 def test_df_s():

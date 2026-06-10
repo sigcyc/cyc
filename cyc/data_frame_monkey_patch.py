@@ -27,7 +27,7 @@ else:
 
 
 def _print_transpose(df: pl.DataFrame) -> None:
-    """Return the full column representation without altering global config."""
+    """Print the full column representation without altering global config."""
     with pl.Config(
         tbl_rows=-1,
         tbl_cols=-1,
@@ -141,12 +141,6 @@ def _plot(
     return PlotSpec([(plotted, left_cols, right_cols)], width=width)
 
 
-def _to_df(df: pl.DataFrame, df_type="default"):
-    from .df import Df
-
-    return Df(df, df_type).enrich()
-
-
 def _sort_cut(df: pl.DataFrame, cut_name):
     try:
         return df.unnest(cut_name).sort("breakpoint", maintain_order=True).drop("breakpoint").rename({"category": cut_name})
@@ -200,7 +194,6 @@ setattr(pl.DataFrame, "_T", property(_print_transpose))
 setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "des", _des)
 setattr(pl.DataFrame, "p", _plot)
-setattr(pl.DataFrame, "to_df", _to_df)
 setattr(pl.DataFrame, "marble", marble)
 setattr(pl.DataFrame, "sort_cut", _sort_cut)
 setattr(pl.DataFrame, "gs", gs)
