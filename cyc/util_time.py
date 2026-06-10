@@ -105,7 +105,7 @@ def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
 
 @lru_cache(maxsize=1024)
 def _is_trading_day(day: Date, calendar: str = "nyse") -> bool:
-    if calendar == "crypto":
+    if calendar == "all_days":
         return True
     return _exchange_calendar(calendar).is_session(day)
 

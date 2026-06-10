@@ -10,6 +10,16 @@ argument-hint: DATASET path file_layout
 - `path` — where to write the normalized output. Registered as `data.path` and resolved by `cyc.config.get_data_path("DATASET")`.
 - `file_layout` — target layout, one of the patterns in `~/.claude/skills/ingest_raw_dataset/data_pipeline.md`.
 
+## Fast path — `convert.py` already exists
+
+Check for `DATASET/convert.py` FIRST. If it exists, this skill already ran for this dataset: the column mapping, the `df_types.yaml` entry, and the script are all in place. Skip every step below — no survey, no file reading, no column mapping, no registration, no dry-run, no confirmation. Just run it:
+
+```bash
+python DATASET/convert.py   # no args = convert all raw files
+```
+
+Report its stdout. If it fails, show the error and stop — do NOT regenerate `convert.py` or any other artifact unless the user explicitly asks for a rebuild. Safety Rules still apply.
+
 ## Reference — use these; do NOT open `cyc/` source to re-derive them
 
 The only `cyc` facts this skill needs are below. Reading `config.py`, `data_loaders.py`, or `df.py` to rediscover them is wasted work — they do not change.
