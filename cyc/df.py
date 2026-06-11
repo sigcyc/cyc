@@ -276,8 +276,8 @@ class Df(_DfBase):
         return result
 
     def __dir__(self):
-        # Enables Tab-completion in IPython/Jupyter for Polars methods
-        return set(dir(super()) + dir(self._df))
+        # Enables Tab-completion in IPython/Jupyter for Df and Polars methods
+        return set(super().__dir__()) | set(dir(self.df))
 
     def __repr__(self):
         return repr(self.df)

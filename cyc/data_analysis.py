@@ -115,13 +115,13 @@ class AccumRatioResult:
         """Display copy: each value cell shows `value (row,column)` for filter()."""
         n_rows, n_row_columns = len(self.row_keys), len(self.row)
         val_cols = self.df.columns[n_row_columns:n_row_columns + len(self.column_keys)]
-        i = pl.Series("__i", list(range(n_rows)) + [None] * (self.df.height - n_rows), dtype=pl.Int64)
-        self.df = self.df.with_columns(__i=i).with_columns(
-            pl.when(pl.col("__i").is_not_null())
-            .then(pl.col(c).round(2).cast(pl.String).fill_null("") + pl.format(" ({},{})", "__i", pl.lit(j)))
+        idx = pl.int_range(pl.len())
+        self.df = self.df.with_columns(
+            pl.when(idx < n_rows)
+            .then(pl.col(c).round(2).cast(pl.String).fill_null("") + pl.format(" ({},{})", idx, pl.lit(j)))
             .otherwise(pl.col(c).round(2).cast(pl.String)).alias(c)
             for j, c in enumerate(val_cols)
-        ).drop("__i")
+        )
         return self
 
 

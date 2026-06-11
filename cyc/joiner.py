@@ -37,7 +37,7 @@ class Joiner:
         })
         right_df = pl.DataFrame({
             "_key": right_on,
-            "_idx": pl.arange(0, len(right_on), eager=True),
+            "_idx": pl.int_range(0, len(right_on), eager=True),
             **dict(zip(by_cols, by_right or [])),
         })
         return cls(left_df.join_asof(right_df, on="_key", by=by_cols or None)["_idx"], len(right_on))
@@ -62,7 +62,7 @@ class Joiner:
         left_df = pl.DataFrame(dict(zip(key_cols, left_on)))
         right_df = pl.DataFrame({
             **dict(zip(key_cols, right_on)),
-            "_idx": pl.arange(0, right_len, eager=True),
+            "_idx": pl.int_range(0, right_len, eager=True),
         }).unique(subset=key_cols, keep=how, maintain_order=True)
         return cls(left_df.join(right_df, on=key_cols, how="left", maintain_order="left")["_idx"], right_len)
 

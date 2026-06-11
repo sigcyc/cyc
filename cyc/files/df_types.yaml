@@ -97,7 +97,7 @@ pdd_earnings:
 # scheduled market-moving events (CPI, FOMC, index rebalances, ...); all_days
 # calendar so events on non-NYSE days (e.g. NFP on Good Friday) are not skipped.
 # script: data_scripts/market_moving_events
-eco_events:
+market_moving_events:
   cols:
     core: [sym, time]
   sym: sym

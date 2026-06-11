@@ -34,21 +34,17 @@ def marble(df: pl.DataFrame, rows: Sequence[int] = (), columns: Sequence[int] = 
 
     # Array axis `position` holds df column all_axes[position]; the caller's df
     # column indices are remapped to those positions for treescope below.
-    key_df_list = []
-    shapes = []
-    axis_labels = {}
-    axis_item_labels = {}
-    for position, column_index in enumerate(all_axes):
-        col_name = df.columns[column_index]
-        key_df = df.select(col_name).unique().sort(col_name)
-        key_df_list.append(key_df)
-        shapes.append(len(key_df))
-        axis_labels[position] = col_name
-        axis_item_labels[position] = key_df.to_series().cast(pl.String).to_list()
+    axis_names = [df.columns[i] for i in all_axes]
+    key_df_list = [df.select(name).unique().sort(name) for name in axis_names]
+    shapes = [len(key_df) for key_df in key_df_list]
+    axis_labels = dict(enumerate(axis_names))
+    axis_item_labels = {
+        position: key_df.to_series().cast(pl.String).to_list() for position, key_df in enumerate(key_df_list)
+    }
 
     # maintain_order="left": the reshape assumes rows stay in cross-product order.
     df = reduce(lambda a, b: a.join(b, how="cross"), key_df_list).join(
-        df, on=list(axis_labels.values()), how="left", maintain_order="left"
+        df, on=axis_names, how="left", maintain_order="left"
     )
     data = df[:, -1].reshape(tuple(shapes)).to_numpy()
 

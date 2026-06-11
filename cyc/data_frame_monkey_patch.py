@@ -142,10 +142,9 @@ def _plot(
 
 
 def _sort_cut(df: pl.DataFrame, cut_name):
-    try:
-        return df.unnest(cut_name).sort("breakpoint", maintain_order=True).drop("breakpoint").rename({"category": cut_name})
-    except Exception:
+    if cut_name in df.columns and not isinstance(df.schema[cut_name], pl.Struct):
         raise ValueError(f"{cut_name!r}: pass include_breaks=True to pl.cut")
+    return df.unnest(cut_name).sort("breakpoint", maintain_order=True).drop("breakpoint").rename({"category": cut_name})
 
 
 @njit(cache=True)
