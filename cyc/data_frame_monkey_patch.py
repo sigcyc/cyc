@@ -2,6 +2,7 @@ from typing import Optional
 import shutil
 import numpy as np
 import polars as pl
+import polars.selectors as cs
 import altair as alt
 from numba import njit
 from .marble import marble
@@ -33,7 +34,7 @@ def _print_transpose(df: pl.DataFrame) -> None:
         tbl_cols=-1,
         tbl_width_chars=get_terminal_size(),
     ):
-        print(repr(df.head(3).transpose(include_header=True)))
+        print(repr(df.head(3).with_columns(cs.binary().cast(pl.String)).transpose(include_header=True)))
 
 
 def _estimate_col_widths(df: pl.DataFrame, fmt_str_lengths: int) -> list[int]:
