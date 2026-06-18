@@ -103,3 +103,44 @@ market_moving_events:
   sym: sym
   time: time
   calendar: all_days
+
+# A-share LJApi Level-2 dumps, parsed by the Rust a_stock_parser binary
+# (~/workspace/a_stock_market_data_parser/docs/agent_skill_spec.md). One lossless
+# parquet per trading date: a_stock_<ds>/YYYYMMDD.parquet under /Users/yichenchen/data.
+# sym = lj_code (encoded u64 security id, decode at query time, see spec §5);
+# time = localtime (epoch nanoseconds). file_layout 'date' is the default (omitted).
+a_stock_order:
+  cols:
+    core: [sym, time, price, qty, side]
+  sym: lj_code
+  time: localtime
+  calendar: sse
+  data:
+    path: /Users/yichenchen/data
+
+a_stock_trade:
+  cols:
+    core: [sym, time, price, qty, side]
+  sym: lj_code
+  time: localtime
+  calendar: sse
+  data:
+    path: /Users/yichenchen/data
+
+a_stock_book:
+  cols:
+    core: [sym, time, lastprice]
+  sym: lj_code
+  time: localtime
+  calendar: sse
+  data:
+    path: /Users/yichenchen/data
+
+a_stock_index:
+  cols:
+    core: [sym, time, last]
+  sym: lj_code
+  time: localtime
+  calendar: sse
+  data:
+    path: /Users/yichenchen/data

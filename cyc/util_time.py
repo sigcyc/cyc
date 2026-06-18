@@ -7,11 +7,17 @@ import exchange_calendars as xcals
 import polars as pl
 
 _CALENDAR_CODES = {"nyse": "XNYS", "sse": "XSHG"}
+# all_days has no exchange; it trades around the clock, so anchor it to America.
+_CALENDAR_TIME_ZONES = {"nyse": "America/New_York", "sse": "Asia/Shanghai", "all_days": "America/New_York"}
 
 
 @lru_cache(maxsize=None)
 def _exchange_calendar(name: str):
     return xcals.get_calendar(_CALENDAR_CODES[name])
+
+
+def calendar_time_zone(calendar: str) -> str:
+    return _CALENDAR_TIME_ZONES[calendar]
 
 
 def parse_time_to_ns(raw: str) -> int:

@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpe
 
 import polars as pl
 
-from .config import get_df_type_dict
+from .config import get_calendar, get_df_type_dict
 from .data_analysis import accum_ratio, accum_ratiop
 from .data_finance import add_spot, add_stock
 from .data_loaders import load_data
 from .types import SymType
-from .util_time import parse_time_to_ns
+from .util_time import calendar_time_zone, parse_time_to_ns
 
 
 _DfBase = pl.DataFrame if TYPE_CHECKING else object
@@ -118,6 +118,7 @@ class Df(_DfBase):
     @classmethod
     def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:
         df_type_dict = get_df_type_dict(df_type)
+        time_zone = calendar_time_zone(get_calendar(df_type))
         schema = lf.collect_schema()
         columns = schema.names()
         expr = []
@@ -133,7 +134,7 @@ class Df(_DfBase):
                 expr.append(pl.col(time_col).alias("time"))
             else:
                 expr.append(
-                    pl.col(time_col).cast(pl.Datetime("ns")).dt.convert_time_zone("America/New_York").alias("time")
+                    pl.col(time_col).cast(pl.Datetime("ns")).dt.convert_time_zone(time_zone).alias("time")
                 )
             has_time = True
 
@@ -149,7 +150,7 @@ class Df(_DfBase):
             return lf.with_columns(pl.col("time").dt.date().alias("date"))
         if has_date:
             return lf.with_columns(
-                pl.col("date").cast(pl.Datetime("ns")).dt.replace_time_zone("America/New_York").alias("time")
+                pl.col("date").cast(pl.Datetime("ns")).dt.replace_time_zone(time_zone).alias("time")
             )
         return lf
 
