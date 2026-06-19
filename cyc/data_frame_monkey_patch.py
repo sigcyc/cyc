@@ -10,7 +10,6 @@ from .gui import PlotSpec, gs
 from .util_system import is_notebook
 
 pl.Config.set_tbl_formatting("ASCII_FULL_CONDENSED")
-pl.Config.set_float_precision(2)
 pl.Config.set_tbl_cols(10)
 pl.Config.set_tbl_rows(15)
 alt.data_transformers.enable("vegafusion")
@@ -38,23 +37,28 @@ def _print_transpose(df: pl.DataFrame) -> None:
 
 
 def _estimate_col_widths(df: pl.DataFrame, fmt_str_lengths: int) -> list[int]:
-    """Estimate display width of each column by sampling rows."""
-    PADDING = 2
-    float_precision = pl.Config.state(if_set=True).get("set_float_precision")
+    """Per-column display widths, read off Polars' own rendering of a row sample.
+
+    Measuring the real render is the only thing that gets every dtype right: a
+    plain `cast(String)` does not reproduce how `mixed` mode shows floats (e.g.
+    374693089.85 displays as `3.7469e8`, not `374693089.85`), so it can mis-size
+    float columns by 2x. See docs/polars_float_display.md.
+    """
+    if df.width == 0:
+        return []
     sample = pl.concat([df.head(10), df.tail(10)]) if len(df) > 20 else df
-    widths = []
-    for col in sample.columns:
-        s = sample[col]
-        header_w = len(col) + PADDING
-        if s.dtype.is_float() and float_precision is not None:
-            str_col = s.round(float_precision).cast(pl.String).fill_null("null")
-        else:
-            str_col = s.cast(pl.String).fill_null("null")
-        raw_max = str_col.str.len_chars().max()
-        max_len = min(raw_max if isinstance(raw_max, int) else 0, fmt_str_lengths)
-        data_w = max_len + PADDING
-        widths.append(max(header_w, data_w, 5))
-    return widths
+    with pl.Config(
+        tbl_rows=-1,
+        tbl_cols=-1,
+        tbl_width_chars=65535,  # u16 max: never wrap, so each column gets its natural width
+        fmt_str_lengths=fmt_str_lengths,
+    ):
+        lines = repr(sample).splitlines()
+    # ASCII_FULL_CONDENSED top border is `+----+----+`; the dash run between each
+    # pair of `+` is that column's width (content plus one space of padding each
+    # side), which is exactly what `_print_all` budgets per column.
+    border = next(line for line in lines if "+" in line and set(line) <= {"+", "-"})
+    return [len(segment) for segment in border.strip("+").split("+")]
 
 
 def _print_all(df: pl.DataFrame) -> None:
