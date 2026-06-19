@@ -22,14 +22,15 @@ class PlotSpec:
     shares another, and colors cycle across all series.
     """
 
-    def __init__(self, sources: list[Source], width: int = 600):
+    def __init__(self, sources: list[Source], width: int = 600, height: int = 300):
         self.sources = sources
         self.width = width
+        self.height = height
 
     def __add__(self, other):
         if not isinstance(other, PlotSpec):
             return NotImplemented
-        return PlotSpec(self.sources + other.sources, self.width)
+        return PlotSpec(self.sources + other.sources, self.width, self.height)
 
     def _build(self) -> alt.TopLevelMixin:
         labels = _derive_labels(self.sources)
@@ -65,11 +66,13 @@ class PlotSpec:
         else:
             # y=independent gives left and right their own scales (dual-axis);
             # color=shared keeps one legend and one color cycle across both layers.
-            # The crosshair rule has no y encoding, so independent y on the line
-            # layers doesn't distort it.
             chart = (layers[0] + layers[1] + crosshair).resolve_scale(y="independent", color="shared")
-        # bind_y=False: drag-pan and wheel-zoom act on the x scale only.
-        return chart.interactive(bind_y=False)
+        # Pin a shared height on every layer. The crosshair rule has no y encoding,
+        # so vega-lite sizes it at the 20px default step height; under the dual-axis
+        # interactive() restructuring that mismatch collapses the plot area — the
+        # lines vanish and the x-axis jumps to the top. An explicit height keeps the
+        # layers aligned. bind_y=False: drag-pan and wheel-zoom act on the x scale only.
+        return chart.properties(height=self.height).interactive(bind_y=False)
 
     def _resolve_time_format(self, parts: list[pl.DataFrame]) -> str:
         t = pl.concat([p["time"] for p in parts])

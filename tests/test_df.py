@@ -112,6 +112,16 @@ class TestPlotSpec:
         assert d["resolve"]["scale"]["y"] == "independent"
         assert d["resolve"]["scale"]["color"] == "shared"
 
+    def test_dual_axis_pins_explicit_height(self):
+        # The crosshair rule has no y encoding, so vega-lite sizes it at the 20px
+        # default step height. Combined with the dual-axis interactive() restructuring,
+        # that mismatch against the 300px line layers collapsed the plot area — the
+        # lines vanished and the x-axis jumped to the top. Pinning a shared explicit
+        # height on every layer is what keeps them aligned; assert it stays pinned.
+        d = self._make_df().p(["a"], ["b"])._build().to_dict()
+        assert "resolve" in d  # this is the dual-axis path that used to collapse
+        assert d["height"] == 300
+
     def test_combined_left_layer_contains_all_left_series(self):
         a = self._make_df("TSLA").p(["a"], ["b"])
         b = self._make_df("UBER").p(["a"], ["b"])
