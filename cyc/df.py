@@ -171,7 +171,7 @@ class Df(_DfBase):
         a: Optional[list[pl.Series | pl.Expr]] = None,  # extra with_columns exprs, always displayed
         f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
-        sample: Optional[int] = None,
+        n: Optional[int] = None,
     ) -> Df:
         """
         Filter the columns to sym + time + col_names, then
@@ -241,8 +241,8 @@ class Df(_DfBase):
                 filters.append(date_expr == date_value)
 
         df = df.filter(f, *filters)
-        if sample is not None:
-            df = df.sample(n=sample).sort("time")
+        if n is not None:
+            df = df.sample(n=n).sort("time")
         return Df(df, self.df_type)
 
     def to_pl(self) -> pl.DataFrame:
