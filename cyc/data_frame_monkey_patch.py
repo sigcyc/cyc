@@ -100,10 +100,14 @@ def _des(df: pl.DataFrame) -> pl.DataFrame:
     return df.describe(percentiles=(0.01, 0.10, 0.25, 0.50, 0.75, 0.90, 0.99))
 
 
+Value = int | str | pl.Expr  # column index, column name, or expression
+AxisItem = Value | tuple[Value, pl.Expr]  # a value, or (value, filter) to mask it
+
+
 def _plot(
     df: pl.DataFrame,
-    left_axis: list[int | str | tuple[int | str, pl.Expr]],
-    right_axis: Optional[list[int | str | tuple[int | str, pl.Expr]]] = None,
+    left_axis: list[AxisItem],
+    right_axis: Optional[list[AxisItem]] = None,
     width: int = 600,
 ) -> PlotSpec:
     """
@@ -113,34 +117,56 @@ def _plot(
     `+` to combine sources with shared left/right y-scales and color cycling.
 
     Args:
-        left_axis: column index or name to plot on the left y-axis. A
-            (column, filter) tuple plots the column only where the filter
-            expression holds, as a series named "{column}_{filter_name}" —
-            alias the filter to control the name:
-            ("spot", (pl.col("sym") == "TSLA").alias("TSLA")) -> "spot_TSLA"
+        left_axis: each entry plots one series on the left y-axis. An entry is:
+            - a column index or name -> plotted as-is, named by the column
+            - a polars expression -> plotted by its output name (alias to rename):
+              pl.col("spot").cum_sum().alias("cum") -> "cum"
+            - a (value, filter) tuple, where value is a column or an expression ->
+              plots the value only where the filter holds, named
+              "{value}_{filter_name}" (alias the filter to control the name):
+              ("spot", (pl.col("sym") == "TSLA").alias("TSLA")) -> "spot_TSLA"
+              (pl.col("bid") - pl.col("ask"), cond) -> the expression masked by cond
         right_axis: same as left_axis, on the right y-axis
     """
     right_axis = right_axis or []
 
-    def resolve(item: int | str | tuple[int | str, pl.Expr]) -> tuple[str, Optional[pl.Expr]]:
-        """Resolve an axis entry to (series_name, masked_expr); plain columns need no expr."""
-        filter_expr = None
+    def resolve(item: AxisItem) -> tuple[str, Optional[pl.Expr]]:
+        """Resolve an axis entry to (series_name, expr_to_add).
+
+        expr_to_add is None for a plain column (already in df); otherwise it is
+        the expression to compute — masked by the filter for a (value, filter)
+        tuple, and named "{value}_{filter}".
+        """
+        # Separate the optional filter from the value it masks.
         if isinstance(item, tuple):
-            item, filter_expr = item
-        column = df.columns[item] if isinstance(item, int) else item
+            value, filter_expr = item
+        else:
+            value, filter_expr = item, None
+
+        # Resolve the value to (name, expr); a plain column becomes pl.col(name).
+        is_expr = isinstance(value, pl.Expr)
+        if is_expr:
+            name, expr = value.meta.output_name(), value
+        else:
+            name = df.columns[value] if isinstance(value, int) else value
+            expr = pl.col(name)
+
+        # No filter: add bare expressions; a plain column is already in df.
         if filter_expr is None:
-            return column, None
-        name = f"{column}_{filter_expr.meta.output_name()}"
-        return name, pl.when(filter_expr).then(pl.col(column)).alias(name)
+            return name, expr if is_expr else None
+
+        # Filter: mask the value, naming the series after both.
+        name = f"{name}_{filter_expr.meta.output_name()}"
+        return name, pl.when(filter_expr).then(expr).alias(name)
 
     left = [resolve(item) for item in left_axis]
     right = [resolve(item) for item in right_axis]
     left_cols = [name for name, _ in left]
     right_cols = [name for name, _ in right]
-    filtered_columns = [expr for _, expr in left + right if expr is not None]
+    computed_exprs = [expr for _, expr in left + right if expr is not None]
     # Rows where every plotted column is null paint nothing but eat the
     # downsampling budget in PlotSpec._build, so drop them up front.
-    plotted = df.with_columns(filtered_columns).filter(
+    plotted = df.with_columns(computed_exprs).filter(
         pl.any_horizontal(pl.col(c).is_not_null() for c in dict.fromkeys(left_cols + right_cols))
     )
     return PlotSpec([(plotted, left_cols, right_cols)], width=width)
