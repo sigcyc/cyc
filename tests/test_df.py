@@ -26,7 +26,7 @@ def test_df_s():
         sym="UBER",
         time_start="09:05",
         time_end="09:07",
-        c=["price"],
+        a=["price"],
         date="20241211",
     )
 
@@ -35,6 +35,25 @@ def test_df_s():
     assert isinstance(filtered, Df)
     assert filtered.columns == ["sym", "time", "price"]
     assert filtered.shape == (3, 3)
+
+
+def test_df_s_suffixes_a_duplicate_of_group_column():
+    df = Df(pl.DataFrame({"sym": ["A"], "time": [datetime(2024, 1, 1)]}))
+
+    selected = df.s(o=["core"], a=["sym"])
+
+    assert selected.columns == ["sym", "time", "sym_2"]
+    assert selected["sym_2"].to_list() == ["A"]
+
+
+def test_df_s_suffixes_duplicate_a_columns():
+    df = Df(pl.DataFrame({"col1": [1, 2]}))
+
+    selected = df.s(a=["col1", "col1", "col1"])
+
+    assert selected.columns == ["col1", "col1_2", "col1_3"]
+    assert selected["col1_2"].to_list() == [1, 2]
+    assert selected["col1_3"].to_list() == [1, 2]
 
 
 def test_load_data():
@@ -190,6 +209,16 @@ class TestPlotSpec:
         assert (left_cols, right_cols) == (["a_TSLA"], ["b"])
         # "b" is non-null everywhere, so no row is all-null and none are dropped
         assert len(src) == 10
+
+    def test_filter_tuple_accepts_expression_value(self):
+        # (expression, filter): the expression is computed and then masked where
+        # the filter holds — the value slot is not limited to a bare column.
+        df = self._make_df("TSLA")  # a=[0,1,2,3,4], b=[10,11,12,13,14]
+        spec = df.p([((pl.col("a") * pl.col("b")).alias("ab"), (pl.col("a") >= 2).alias("hi"))])
+        src, left_cols, _ = spec.sources[0]
+        assert left_cols == ["ab_hi"]
+        # a*b only where a>=2; the masked (null) rows are dropped up front
+        assert src["ab_hi"].to_list() == [24.0, 39.0, 56.0]
 
     def test_filter_tuples_with_colliding_names_raise(self):
         df = pl.concat([self._make_df("TSLA"), self._make_df("UBER")])

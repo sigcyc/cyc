@@ -165,60 +165,77 @@ class Df(_DfBase):
         sym: SymType = None,
         time_start: Optional[str] = None,
         time_end: Optional[str] = None,
-        o: Optional[list[str]] = None,  # options in df_types.yaml
-        c: Optional[list[str] | str] = None,  # column names
+        o: Optional[list[str]] = None,  # column groups in df_types.yaml
         r: Optional[str] = None,  # regular expression
-        a: Optional[list[pl.Series | pl.Expr]] = None,  # extra with_columns exprs, always displayed
+        a: Optional[list[str | pl.Series | pl.Expr]] = None,  # extra columns/exprs, always shown
         f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
         n: Optional[int] = None,
     ) -> Df:
         """
-        Filter the columns to sym + time + col_names, then
+        Select columns down to sym + time + whatever o/a/r name, then filter rows.
 
-        Filter Df by
-        1. self.sym == sym if sym is not None
-        2. self.time is greater than time_start if time_start is not None
-        3. self.time is less than time_end if time_end is not None
-        4. date of self.time equal to date if date is not None
-
-        col_names: list of column names. We support operation on column names when the name contains ":".
-        For example, if the name is "volume:cumsum", then the function will run a cumsum on that column
+        Rows are kept where every condition holds:
+        1. sym matches if sym is not None
+        2. time-of-day >= time_start if given
+        3. time-of-day <= time_end if given
+        4. date within date if given ("20250102" or "20250102-20250105")
+        5. f, an arbitrary boolean expression
 
         Args:
-            sym: TSLA
+            sym: "TSLA" or a list of symbols
             time_start: "9:40" or "9:40:03.5"
             time_end: "9:40" or "9:40:03.5"
             date: "20250102"
+            o: column groups from df_types.yaml
+            r: regex; matching columns are added to the selection
+            a: with_columns expressions, always shown (names existing columns too)
+            n: sample n rows and re-sort by time
         """
-        df = self.df.with_columns(a) if a else self.df
-        col_list = [name for name in ("sym", "time") if name in df.columns]
-        col_list_cumsum = []
-
         df_type_dict = get_df_type_dict(self.df_type)
-        names = []
-        for col_group in o or []:
-            names += df_type_dict["cols"][col_group]
-        c = [c] if isinstance(c, str) else c
-        names += c or []
-        names += [col for col in df.columns if col not in self.df.columns]  # columns added via a
-        if not (o or c or r or a):
-            names = df.columns
+        groups = [col for group in o or [] for col in df_type_dict["cols"][group]]
+        # No selector at all -> show every column; otherwise sym/time plus the
+        # columns o and a name. r adds its regex matches on top either way.
+        pinned = [name for name in ("sym", "time") if name in self.df.columns]
+        selected = [*groups] if (o or r or a) else self.df.columns
+        col_list = list(dict.fromkeys([*pinned, *selected]))
 
-        for col_name in names:
-            name, *op = col_name.split(":")
-            if name not in col_list:
-                col_list.append(name)
-                if op:
-                    col_list_cumsum.append(name)
+        select_exprs: list[str | pl.Series | pl.Expr] = [pl.col(name) for name in col_list]
+        output_names = set(col_list)
+        exclude_names = set(col_list)
 
-        df = df.select(
-            pl.selectors.by_name(col_list),
-            pl.selectors.matches(r or "$^").exclude(col_list),
+        def next_output_name(name: str) -> str:
+            if name not in output_names:
+                output_names.add(name)
+                return name
+            suffix = 2
+            while (candidate := f"{name}_{suffix}") in output_names:
+                suffix += 1
+            output_names.add(candidate)
+            return candidate
+
+        for expr in a or []:
+            if isinstance(expr, str):
+                name = expr
+                a_expr: pl.Series | pl.Expr = pl.col(expr)
+            elif isinstance(expr, pl.Series):
+                name = expr.name
+                a_expr = expr
+            else:
+                name = expr.meta.output_name()
+                a_expr = expr
+
+            output_name = next_output_name(name)
+            exclude_names.add(name)
+            exclude_names.add(output_name)
+            select_exprs.append(a_expr.alias(output_name) if output_name != name else a_expr)
+
+        df = self.df.select(
+            pl.selectors.matches(r or "$^").exclude(exclude_names),
+            *select_exprs,
         )
-        df = df.with_columns([pl.col(name).cum_sum() for name in col_list_cumsum])
 
-        filters = []
+        filters = [f]
         if "sym" in df.columns:
             filters.append(filter_sym(sym))
 
@@ -240,7 +257,7 @@ class Df(_DfBase):
                 date_value = datetime.strptime(date, "%Y%m%d").date()
                 filters.append(date_expr == date_value)
 
-        df = df.filter(f, *filters)
+        df = df.filter(*filters)
         if n is not None:
             df = df.sample(n=n).sort("time")
         return Df(df, self.df_type)
