@@ -37,23 +37,29 @@ def _print_transpose(df: pl.DataFrame) -> None:
 
 
 def _estimate_col_widths(df: pl.DataFrame, fmt_str_lengths: int) -> list[int]:
-    """Per-column display widths, read off Polars' own rendering of a row sample.
+    """Display widths, read off Polars' own rendering of what `_print_all` shows.
 
     Measuring the real render is the only thing that gets every dtype right: a
     plain `cast(String)` does not reproduce how `mixed` mode shows floats (e.g.
     374693089.85 displays as `3.7469e8`, not `374693089.85`), so it can mis-size
     float columns by 2x. See docs/polars_float_display.md.
+
+    The frame measured here is exactly the one `_print_all` renders -- the whole
+    data plus the leading `#` index column -- so the budget cannot drift from the
+    render. Two ways it used to drift: measuring a sample missed a datetime
+    column's finest sub-second precision when it lived only in an unsampled row
+    (Polars sizes the column to that row), and the `#` column was never counted.
+    The full frame at the 10k-row cap renders in well under 100ms. Returns one
+    width per rendered column, `#` first.
     """
-    if df.width == 0:
-        return []
-    sample = pl.concat([df.head(10), df.tail(10)]) if len(df) > 20 else df
+    shown = df.select(pl.int_range(pl.len()).alias("#"), pl.all())
     with pl.Config(
         tbl_rows=-1,
         tbl_cols=-1,
         tbl_width_chars=65535,  # u16 max: never wrap, so each column gets its natural width
         fmt_str_lengths=fmt_str_lengths,
     ):
-        lines = repr(sample).splitlines()
+        lines = repr(shown).splitlines()
     # ASCII_FULL_CONDENSED top border is `+----+----+`; the dash run between each
     # pair of `+` is that column's width (content plus one space of padding each
     # side), which is exactly what `_print_all` budgets per column.
@@ -68,12 +74,14 @@ def _print_all(df: pl.DataFrame) -> None:
         raise ValueError("more than 10k rows")
     df = df.with_columns(pl.col(pl.Datetime).dt.replace_time_zone(None))
     fmt_str_lengths = 100
-    col_widths = _estimate_col_widths(df, fmt_str_lengths)
+    # `#` is rendered in every group, so its width is pinned out of the per-group
+    # budget up front; col_widths then lines up positionally with df.columns.
+    index_width, *col_widths = _estimate_col_widths(df, fmt_str_lengths)
 
     groups: list[list[str]] = []
     start = 0
     while start < len(df.columns):
-        total = 1  # rightmost border
+        total = 1 + index_width + 1  # rightmost border + the `#` column
         end = start
         while end < len(df.columns):
             w = col_widths[end] + 1  # column width + border char

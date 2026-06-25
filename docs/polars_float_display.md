@@ -91,8 +91,11 @@ of such values gets sized ~2x too wide and the output fragments into extra
 groups.
 
 Rather than reimplement this ladder in Python (which would drift from the Rust
-constants above), `_estimate_col_widths` renders a row sample through Polars and
-reads the column widths off the table's top border. That is correct for every
-dtype and for both float paths by construction — if column-width estimation ever
-looks wrong, check that the global table format is still `ASCII_FULL_CONDENSED`
-(the border parsing assumes it).
+constants above), `_estimate_col_widths` renders the frame through Polars and
+reads the column widths off the table's top border. It measures the whole frame
+(plus the leading `#` index column) — exactly what `_print_all` renders — rather
+than a sample: a sample can miss a datetime column's finest sub-second precision
+when it lives only in an unsampled row, which sizes the column too narrow and
+makes the cells wrap. That is correct for every dtype and for both float paths by
+construction — if column-width estimation ever looks wrong, check that the global
+table format is still `ASCII_FULL_CONDENSED` (the border parsing assumes it).
