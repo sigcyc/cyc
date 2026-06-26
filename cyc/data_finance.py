@@ -4,6 +4,7 @@ import polars as pl
 
 from .util_time import next_trading_day, previous_trading_day
 from .data_loaders import load_data
+from .joiner import Joiner
 
 
 def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str] | dict[str, str]) -> pl.DataFrame:
@@ -23,12 +24,13 @@ def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str] |
         fields = [fields]
     mapping = fields if isinstance(fields, dict) else {f: f for f in fields}
     stock_data = load_data("stock_data_day", self[date].unique()).collect()
-    stock_data = stock_data.select(
-        pl.col("ticker").alias(sym),
-        pl.col("date").alias(date),
-        *[pl.col(name_old).alias(name_new) for name_old, name_new in mapping.items()],
+    # Joiner collapses duplicate (ticker, date) keys on the right (keep last), so the
+    # output is always len(self) rows. A plain left join would fan out on the handful
+    # of dup rows in stock_data_day (e.g. NEXN 2025-02-18, TTSH 2025-12-16).
+    joiner = Joiner.join([self[sym], self[date]], [stock_data["ticker"], stock_data["date"]])
+    return self.with_columns(
+        [joiner.get(stock_data[name_old]).alias(name_new) for name_old, name_new in mapping.items()]
     )
-    return self.join(stock_data, on=[sym, date], how="left")
 
 
 def add_spot(
