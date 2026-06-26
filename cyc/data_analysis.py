@@ -63,10 +63,14 @@ def _is_cut(dtype: pl.DataType) -> bool:
     return isinstance(dtype, pl.Struct) and {f.name for f in dtype.fields} >= {"breakpoint", "category"}
 
 
-def _key_col(df: pl.DataFrame, name: str) -> pl.Expr:
-    """Match a cyc.cut column on its category label (it pivots/sorts to category)."""
-    col = pl.col(name)
-    return col.struct.field("category") if _is_cut(df.schema[name]) else col
+def _key_col(df: pl.DataFrame, name: str, base: pl.Expr) -> pl.Expr:
+    """Accessor recomputing a dimension's key from the original dataframe.
+
+    `base` reaches the dimension (a column reference, the user's expression, or a
+    constant for a dummy column); a cyc.cut struct is reduced to its category
+    label so it matches the pivoted/sorted key.
+    """
+    return base.struct.field("category") if _is_cut(df.schema[name]) else base
 
 
 def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
@@ -125,10 +129,31 @@ class AccumRatioResult:
         return self
 
 
+def _resolve_columns(
+    df: pl.DataFrame, spec, dummy: str
+) -> tuple[pl.DataFrame, list[str], list[pl.Expr]]:
+    """Resolve a row/column spec to real columns; return (df, names, accessors).
+
+    `spec` is a name, an expression, a list of either, or None. Expressions are
+    materialized onto `df`; None becomes one constant column so the no-dimension
+    case collapses into the ordinary single-column case. `accessors` recompute
+    each key from the *original* dataframe (used by AccumRatioResult.filter).
+    """
+    if spec is None:
+        return df.with_columns(pl.lit("all").alias(dummy)), [dummy], [pl.lit("all")]
+    spec = [spec] if isinstance(spec, (str, pl.Expr)) else list(spec)
+    exprs = [e for e in spec if isinstance(e, pl.Expr)]
+    if exprs:
+        df = df.with_columns(exprs)
+    names = [e if isinstance(e, str) else e.meta.output_name() for e in spec]
+    accessors = [pl.col(e) if isinstance(e, str) else e for e in spec]
+    return df, names, accessors
+
+
 def accum_ratio(
     df: pl.DataFrame,
-    row: str | list[str],
-    column: str | list[str],
+    row: str | pl.Expr | Iterable[str | pl.Expr],
+    column: str | pl.Expr | Iterable[str | pl.Expr] | None,
     val1: str | pl.Expr,
     val2: str | pl.Expr,
     f: str | pl.Expr | None = None,
@@ -137,9 +162,9 @@ def accum_ratio(
         df = df.filter(f)
 
     df = df.with_columns(__num__=val1, __denom__=val2)
+    df, row, row_accessors = _resolve_columns(df, row, "__row__")
+    df, column, column_accessors = _resolve_columns(df, column, "__column__")
 
-    row = [row] if isinstance(row, str) else row
-    column = [column] if isinstance(column, str) else column
     grouped = df.group_by(row + column).agg(
         pl.col("__num__").sum(),
         pl.col("__denom__").sum(),
@@ -186,8 +211,8 @@ def accum_ratio(
     result = pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
     return AccumRatioResult(
         result,
-        [_key_col(df, c) for c in row],
-        [_key_col(df, c) for c in column],
+        [_key_col(df, n, a) for n, a in zip(row, row_accessors)],
+        [_key_col(df, n, a) for n, a in zip(column, column_accessors)],
         pv_num.select(row).rows(),
         grouped.select(column).unique(maintain_order=True).rows(),
     )
