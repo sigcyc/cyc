@@ -1,6 +1,6 @@
 # next_standard_expiration
 
-
+Status: done. Calendar defaults were since reworked by `018_calendar_default.md`: the public function now takes `calendar: str | None = None` (resolved against the session default), the private one requires a concrete calendar.
 
 ## Requirement
 Write a function in cyc/time_util.py to implement the logic

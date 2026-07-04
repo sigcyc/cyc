@@ -19,7 +19,7 @@ def get_df_type_dict(df_type: str) -> DfType:
 
 def get_calendar(df_type: str) -> str:
     config = _load_yaml()
-    return config[get_df_type_parent(df_type)].get("calendar", config["default"].get("calendar", "nyse"))
+    return config[get_df_type_parent(df_type)].get("calendar", config["default"]["calendar"])
 
 
 def get_file_layout(df_type: str) -> str | None:

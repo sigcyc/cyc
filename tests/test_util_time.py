@@ -1,6 +1,7 @@
 import pytest
 
-from cyc.util_time import parse_time_to_ns, parse_dates
+from cyc import util_time
+from cyc.util_time import parse_time_to_ns, parse_dates, set_default_calendar
 
 
 def _ns(hours: int, minutes: int, seconds: int, nanos: int = 0) -> int:
@@ -56,6 +57,21 @@ def test_parse_date_skips_holidays():
         "20231226",
         "20231227",
     ]
+
+
+def test_default_calendar_resolution(monkeypatch):
+    # monkeypatch restores the session default after the test
+    monkeypatch.setattr(util_time, "_default_calendar", "nyse")
+
+    # initial default (nyse): golden week days are ordinary NYSE sessions
+    assert parse_dates("20241001-20241008")[0] == "20241001"
+
+    # session default: SSE is closed for golden week, first session is Oct 8
+    set_default_calendar("sse")
+    assert parse_dates("20241001-20241008") == ["20241008"]
+
+    # explicit argument beats the session default
+    assert parse_dates("20241001-20241003", "nyse") == ["20241001", "20241002", "20241003"]
 
 
 def test_parse_date_rejects_invalid_ranges():

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
+from .config import get_calendar
 from .util_time import next_trading_day, previous_trading_day
 from .data_loaders import load_data
 from .joiner import Joiner
@@ -62,7 +63,7 @@ def _get_spot(sym: pl.Series, date: pl.Series, num_days: int, field: str) -> pl.
         return add_stock(df, "sym", "date", field)[field]
 
     if num_days > 0:
-        next_day = next_trading_day(date)
+        next_day = next_trading_day(date, get_calendar("stock_data_day"))
         spot = _get_spot(sym, next_day, num_days - 1, field)
         next_df = pl.DataFrame({"sym": sym, "date": next_day})
         adj = add_stock(next_df, "sym", "date", ["dividend", "split"])
@@ -70,7 +71,7 @@ def _get_spot(sym: pl.Series, date: pl.Series, num_days: int, field: str) -> pl.
         split = adj["split"].fill_null(1)
         return spot * split + dividend
 
-    prev_day = previous_trading_day(date)
+    prev_day = previous_trading_day(date, get_calendar("stock_data_day"))
     spot = _get_spot(sym, prev_day, num_days + 1, field)
     adj = add_stock(df, "sym", "date", ["dividend", "split"])
     dividend = adj["dividend"].fill_null(0)

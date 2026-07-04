@@ -9,5 +9,5 @@ class DfType(TypedDict):
     time: NotRequired[str]
     date: NotRequired[str]
     data: dict[str, str]
-    calendar: str # calendar for time zone
+    calendar: str # time zone and trading-day calendar
     file_layout: NotRequired[Optional[Literal["hive_sym", "single", "single_hive_sym"]]]

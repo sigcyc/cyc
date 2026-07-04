@@ -6,6 +6,7 @@ from . import data_frame_monkey_patch
 from .df import Df, concat_df2
 from .data_loaders import load_data
 from .config import get_data_path, get_df_type_parent
+from .util_time import set_default_calendar
 from .joiner import Joiner
 
-__all__ = ["Df", "load_data", "get_data_path", "get_df_type_parent", "pl", "col", "concat_df2", "Joiner"]
+__all__ = ["Df", "load_data", "get_data_path", "get_df_type_parent", "pl", "col", "concat_df2", "Joiner", "set_default_calendar"]

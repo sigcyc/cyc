@@ -10,14 +10,26 @@ _CALENDAR_CODES = {"nyse": "XNYS", "sse": "XSHG"}
 # all_days has no exchange; it trades around the clock, so anchor it to America.
 _CALENDAR_TIME_ZONES = {"nyse": "America/New_York", "sse": "Asia/Shanghai", "all_days": "America/New_York"}
 
+_default_calendar = "nyse"
+
+
+def set_default_calendar(calendar: str) -> None:
+    """Session-wide calendar for date math outside any df_type. Set once per study.
+
+    Code inside cyc/ must pass calendar explicitly (from the df_type it touches);
+    only end-user scripts lean on this default.
+    """
+    global _default_calendar
+    _default_calendar = calendar
+
 
 @lru_cache(maxsize=None)
 def _exchange_calendar(name: str):
     return xcals.get_calendar(_CALENDAR_CODES[name])
 
 
-def calendar_time_zone(calendar: str) -> str:
-    return _CALENDAR_TIME_ZONES[calendar]
+def calendar_time_zone(calendar: str | None = None) -> str:
+    return _CALENDAR_TIME_ZONES[calendar or _default_calendar]
 
 
 def parse_time_to_ns(raw: str) -> int:
@@ -56,11 +68,12 @@ def parse_time_to_ns(raw: str) -> int:
     return total_seconds * 1_000_000_000 + nanosecond
 
 
-def parse_dates(date: str, calendar: str = "nyse") -> list[str]:
+def parse_dates(date: str, calendar: str | None = None) -> list[str]:
     """
     Given a date in the format of YYYYMMDD-YYYYMMDD. For example '20240101-20240110',
     return a list of dates that are trading days
     """
+    calendar = calendar or _default_calendar
     raw = date.strip()
     if not raw:
         raise ValueError("date string cannot be empty")
@@ -99,25 +112,27 @@ def _step_trading_day(day: Date, step: timedelta, calendar: str) -> Date:
     return day
 
 
-def previous_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
+def previous_trading_day(date: pl.Series, calendar: str | None = None) -> pl.Series:
     """Given date, calculate the previous trading day."""
+    calendar = calendar or _default_calendar
     return date.map_elements(lambda d: _step_trading_day(d, timedelta(days=-1), calendar), return_dtype=pl.Date)
 
 
-def next_trading_day(date: pl.Series, calendar: str = "nyse") -> pl.Series:
+def next_trading_day(date: pl.Series, calendar: str | None = None) -> pl.Series:
     """Given date, calculate the next trading day."""
+    calendar = calendar or _default_calendar
     return date.map_elements(lambda d: _step_trading_day(d, timedelta(days=1), calendar), return_dtype=pl.Date)
 
 
 @lru_cache(maxsize=1024)
-def _is_trading_day(day: Date, calendar: str = "nyse") -> bool:
+def _is_trading_day(day: Date, calendar: str) -> bool:
     if calendar == "all_days":
         return True
     return _exchange_calendar(calendar).is_session(day)
 
 
 @lru_cache(maxsize=1024)
-def _next_standard_expiration(date: Date, calendar: str = "nyse") -> Date:
+def _next_standard_expiration(date: Date, calendar: str) -> Date:
     year, month = date.year, date.month
     step = timedelta(days=-1 if calendar == "nyse" else 1)
     while True:
@@ -130,6 +145,7 @@ def _next_standard_expiration(date: Date, calendar: str = "nyse") -> Date:
             return d
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
 
-def next_standard_expiration(date: pl.Series, calendar: str = "nyse") -> pl.Series:
+def next_standard_expiration(date: pl.Series, calendar: str | None = None) -> pl.Series:
+    calendar = calendar or _default_calendar
     mapping = {d: _next_standard_expiration(d, calendar) for d in date.unique()}
     return date.replace_strict(mapping, return_dtype=pl.Date)
