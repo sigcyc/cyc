@@ -1,7 +1,7 @@
 import pytest
 
 from cyc import util_time
-from cyc.util_time import parse_time_to_ns, parse_dates, set_default_calendar
+from cyc.util_time import parse_time_to_ns, parse_dates, seconds_since_midnight, set_default_calendar
 
 
 def _ns(hours: int, minutes: int, seconds: int, nanos: int = 0) -> int:
@@ -57,6 +57,20 @@ def test_parse_date_skips_holidays():
         "20231226",
         "20231227",
     ]
+
+
+def test_seconds_since_midnight():
+    # 2024-06-03 13:30:00 UTC == 09:30 America/New_York (EDT) == 21:30 Asia/Shanghai
+    summer = 1_717_421_400 * 10**9
+    assert seconds_since_midnight(summer) == 9 * 3600 + 30 * 60
+    assert seconds_since_midnight(summer, "sse") == 21 * 3600 + 30 * 60
+
+    # 2024-01-15 14:30:00 UTC == 09:30 America/New_York (EST)
+    winter = 1_705_329_000 * 10**9
+    assert seconds_since_midnight(winter) == 9 * 3600 + 30 * 60
+
+    # nanoseconds survive as fractional seconds
+    assert seconds_since_midnight(summer + 500_000_000) == 9 * 3600 + 30 * 60 + 0.5
 
 
 def test_default_calendar_resolution(monkeypatch):

@@ -68,6 +68,12 @@ def parse_time_to_ns(raw: str) -> int:
     return total_seconds * 1_000_000_000 + nanosecond
 
 
+def seconds_since_midnight(time: int, calendar: str | None = None) -> float:
+    """Wall-clock seconds since midnight in the calendar's time zone; time is epoch nanoseconds."""
+    local = pl.Series([time]).cast(pl.Datetime("ns")).dt.convert_time_zone(calendar_time_zone(calendar))
+    return local.dt.time().cast(pl.Int64).item() / 1_000_000_000
+
+
 def parse_dates(date: str, calendar: str | None = None) -> list[str]:
     """
     Given a date in the format of YYYYMMDD-YYYYMMDD. For example '20240101-20240110',
