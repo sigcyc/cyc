@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpe
 
 import polars as pl
 
+from cyc_ref_data import instrument_id_to_sym, sym_to_instrument_id
+
 from .config import get_calendar, get_df_type_dict
 from .data_analysis import accum_ratio, accum_ratiop
 from .data_finance import add_spot, add_stock
@@ -25,6 +27,7 @@ def filter_sym(sym: SymType) -> pl.Expr:
     syms = [sym] if isinstance(sym, (str, int)) else list(sym)
     return pl.col("sym").is_in(syms)
 
+
 def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
     if isinstance(df1, Df):
         df1 = df1.df
@@ -40,6 +43,7 @@ def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
         order += [c, f"{c}_2"] if c in shared else [c]
     order += rest
     return pl.concat([df1, df2], how="horizontal").select(order)
+
 
 def wrap_df_func(
     func: Callable[Concatenate[pl.DataFrame, P], Any],
@@ -96,9 +100,7 @@ class Df(_DfBase):
                 self_counts = self.df.group_by("date").len().sort("date")
                 sidecar_counts = sidecar_df.group_by("date").len().sort("date")
                 diff = (
-                    self_counts.join(
-                        sidecar_counts, on="date", how="full", coalesce=True, suffix="_sidecar"
-                    )
+                    self_counts.join(sidecar_counts, on="date", how="full", coalesce=True, suffix="_sidecar")
                     .filter(pl.col("len").ne_missing(pl.col("len_sidecar")))
                     .sort("date")
                 )
@@ -108,9 +110,7 @@ class Df(_DfBase):
             for col in sidecar_df.get_columns():
                 if col.name in protected and col.name in self.df.columns:
                     if (col.is_not_null() & col.ne_missing(self.df[col.name])).any():
-                        raise ValueError(
-                            f"Sidecar {name!r} column {col.name!r} does not match self.df"
-                        )
+                        raise ValueError(f"Sidecar {name!r} column {col.name!r} does not match self.df")
                 else:
                     new_columns.append(col)
             self.df = self.df.with_columns(new_columns)
@@ -124,7 +124,15 @@ class Df(_DfBase):
         expr = []
 
         if "sym" not in columns:
-            expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
+            if "sym" in df_type_dict:
+                expr.append(pl.col(df_type_dict["sym"]).alias("sym"))
+            elif "instrument_id" in df_type_dict:
+                expr.append(instrument_id_to_sym(pl.col(df_type_dict["instrument_id"])).alias("sym"))
+        if "instrument_id" not in columns:
+            if "instrument_id" in df_type_dict:
+                expr.append(pl.col(df_type_dict["instrument_id"]).alias("instrument_id"))
+            elif "sym" in df_type_dict:
+                expr.append(sym_to_instrument_id(pl.col(df_type_dict["sym"])).alias("instrument_id"))
 
         has_time = "time" in columns
         has_date = "date" in columns
@@ -133,9 +141,7 @@ class Df(_DfBase):
             if isinstance(schema[time_col], pl.Datetime):
                 expr.append(pl.col(time_col).alias("time"))
             else:
-                expr.append(
-                    pl.col(time_col).cast(pl.Datetime("ns")).dt.convert_time_zone(time_zone).alias("time")
-                )
+                expr.append(pl.col(time_col).cast(pl.Datetime("ns")).dt.convert_time_zone(time_zone).alias("time"))
             has_time = True
 
         if not has_date and (date_col := df_type_dict.get("date")):
@@ -149,9 +155,7 @@ class Df(_DfBase):
         if has_time:
             return lf.with_columns(pl.col("time").dt.date().alias("date"))
         if has_date:
-            return lf.with_columns(
-                pl.col("date").cast(pl.Datetime("ns")).dt.replace_time_zone(time_zone).alias("time")
-            )
+            return lf.with_columns(pl.col("date").cast(pl.Datetime("ns")).dt.replace_time_zone(time_zone).alias("time"))
         return lf
 
     add_stock = wrap_df_func(add_stock)

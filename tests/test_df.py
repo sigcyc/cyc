@@ -1,9 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import altair as alt
 import numpy as np
 import polars as pl
 import pytest
+
+import cyc_ref_data
+from cyc_ref_data.masters import MASTER_SCHEMAS, write_master
 
 from cyc.df import Df
 from cyc.data_loaders import load_data
@@ -233,6 +236,57 @@ class TestPlotSpec:
     def test_add_with_non_plotspec_returns_notimplemented(self):
         spec = self._make_df().p(["a"], ["b"])
         assert spec.__add__(42) is NotImplemented
+
+
+class TestEnrichInstrumentId:
+    @pytest.fixture(autouse=True)
+    def masters(self, tmp_path, monkeypatch):
+        """Scratch cyc_ref_data masters: AAPL=7, TSLA=8."""
+        monkeypatch.setenv("CYC_REF_DATA_MASTERS", str(tmp_path))
+        equity = pl.DataFrame(
+            {
+                "instrument_id": [7, 8],
+                "sym": ["AAPL", "TSLA"],
+                "kind": ["CS", "CS"],
+                "valid_from": [date(2020, 1, 1)] * 2,
+                "valid_to": [None, None],
+                "first_seen": [date(2020, 1, 1)] * 2,
+            },
+            schema=MASTER_SCHEMAS["equity"],
+        )
+        write_master(equity, "equity", tmp_path)
+        cyc_ref_data.reload_masters()
+        yield
+        cyc_ref_data.reload_masters()
+
+    def test_derives_instrument_id_from_sym(self):
+        lf = pl.LazyFrame({"ticker": ["TSLA", "AAPL", "UNKNOWN"], "window_start": [datetime(2024, 1, 2, 9, 30)] * 3})
+
+        out = Df._enrich(lf, "stock_data_day").collect()
+
+        assert out["instrument_id"].to_list() == [8, 7, None]
+        assert out["instrument_id"].dtype == pl.UInt32
+
+    def test_derives_sym_from_instrument_id(self):
+        lf = pl.LazyFrame({"instrument_id": [8, 7], "time": [datetime(2024, 1, 2, 9, 30)] * 2})
+
+        out = Df._enrich(lf, "instrument_id_test").collect()
+
+        assert out["sym"].to_list() == ["TSLA", "AAPL"]
+
+    def test_missing_declared_sym_column_crashes(self):
+        # polygon_test declares sym: sym; a frame without it is broken data
+        lf = pl.LazyFrame({"instrument_id": [8, 7], "time": [datetime(2024, 1, 2, 9, 30)] * 2})
+
+        with pytest.raises(pl.exceptions.ColumnNotFoundError):
+            Df._enrich(lf, "polygon_test").collect()
+
+    def test_existing_sym_is_not_overridden(self):
+        lf = pl.LazyFrame({"sym": ["AAPL"], "instrument_id": [8], "time": [datetime(2024, 1, 2, 9, 30)]})
+
+        out = Df._enrich(lf, "polygon_test").collect()
+
+        assert out["sym"].to_list() == ["AAPL"]
 
 
 class TestDfGetattr:
