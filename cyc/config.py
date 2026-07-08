@@ -27,6 +27,11 @@ def get_file_layout(df_type: str) -> str | None:
     return config[get_df_type_parent(df_type)].get("file_layout", "date")
 
 
+def get_data_dir() -> Path:
+    """The registry's shared data root (`data_dir` in df_types.yaml)."""
+    return Path(_load_yaml()["data_dir"]).expanduser()
+
+
 def get_data_path(df_type: str) -> Path:
     """Directory containing the parquet files (or partition dirs) for df_type.
 
