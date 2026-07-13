@@ -9,7 +9,7 @@ import cyc_ref_data
 from cyc_ref_data.masters import MASTER_SCHEMAS, write_master
 
 from cyc.df import Df
-from cyc.data_loaders import load_data
+from cyc.data_loaders import load_data, load_data_date
 from cyc.gui import PlotSpec
 
 
@@ -61,6 +61,21 @@ def test_df_s_suffixes_duplicate_a_columns():
 
 def test_load_data():
     df = load_data("polygon_test", "20241211-20241213")
+
+
+def test_load_data_date_dir(tmp_path, monkeypatch):
+    frame = pl.DataFrame({"a": [1, 2, 3, 4]})
+    part_dir = tmp_path / "date=20241211"
+    part_dir.mkdir()
+    frame.slice(0, 2).write_parquet(part_dir / "part-0.parquet")
+    frame.slice(2, 2).write_parquet(part_dir / "part-1.parquet")
+    frame.write_parquet(tmp_path / "20241212.parquet")
+    monkeypatch.setattr("cyc.data_loaders.get_data_path", lambda df_type: tmp_path)
+
+    out = load_data_date("any", pl.Series([date(2024, 12, 11), date(2024, 12, 12)])).collect()
+
+    assert out["a"].to_list() == [1, 2, 3, 4, 1, 2, 3, 4]
+    assert out["date"].to_list() == [date(2024, 12, 11)] * 4 + [date(2024, 12, 12)] * 4
 
 
 def test_df_p():

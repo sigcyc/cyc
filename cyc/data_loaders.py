@@ -13,19 +13,27 @@ def _get_date_list(df_type: str, date_str: str | pl.Series) -> list[str]:
     return parse_dates(date_str, get_calendar(df_type))
 
 
-def _existing_files(data_root: Path, candidates: list[tuple[str, Path]]) -> list[Path]:
-    """Keep candidates that exist on disk; report (label, path) misses by label."""
-    files, missing = [], []
-    for label, path in candidates:
-        if path.exists():
-            files.append(path)
-        else:
-            missing.append(label)
+def _existing_groups(data_root: Path, candidates: list[tuple[str, list[Path]]]) -> list[tuple[str, list[Path]]]:
+    """Keep candidates that have files on disk; report misses by label."""
+    missing = [label for label, files in candidates if not files]
     if missing:
         print("missing_dates: " + ", ".join(missing))
-    if not files:
+    groups = [(label, files) for label, files in candidates if files]
+    if not groups:
         raise FileNotFoundError(f"No data found in '{data_root}'")
-    return files
+    return groups
+
+
+def _existing_files(data_root: Path, candidates: list[tuple[str, Path]]) -> list[Path]:
+    """Keep candidates that exist on disk; report (label, path) misses by label."""
+    groups = _existing_groups(data_root, [(label, [path] if path.exists() else []) for label, path in candidates])
+    return [file for _, files in groups for file in files]
+
+
+def _date_files(data_root: Path, date: str) -> list[Path]:
+    """A date is either a flat `{date}.parquet` file or a `date={date}/` dir of parquet parts."""
+    file = data_root / f"{date}.parquet"
+    return [file] if file.exists() else sorted((data_root / f"date={date}").glob("*.parquet"))
 
 
 def load_data(df_type: str, date_str: str | pl.Series | None = None, sym: SymType = None) -> pl.LazyFrame:
@@ -57,20 +65,16 @@ def load_data_single(df_type: str) -> pl.LazyFrame:
 def load_data_date(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
     date_list = _get_date_list(df_type, date_str)
     data_root = get_data_path(df_type)
-    files = _existing_files(data_root, [(d, data_root / f"{d}.parquet") for d in date_list])
+    groups = _existing_groups(data_root, [(d, _date_files(data_root, d)) for d in date_list])
 
     # The latest file decides the schema: backfill columns it has but older files lack
     # (missing_columns), and drop columns older files have but it lacks (extra_columns).
-    return (
-        pl.scan_parquet(
-            files,
-            schema=pl.scan_parquet(files[-1]).collect_schema(),
-            missing_columns="insert",
-            extra_columns="ignore",
-            include_file_paths="__path__",
+    schema = pl.scan_parquet(groups[-1][1][-1]).collect_schema()  # groups[-1] is the latest (date, files); [1][-1] its last file
+    return pl.concat(
+        pl.scan_parquet(files, schema=schema, missing_columns="insert", extra_columns="ignore").with_columns(
+            pl.lit(date).str.to_date("%Y%m%d").alias("date")
         )
-        .with_columns(pl.col("__path__").str.extract(r"(\d{8})\.parquet$").str.to_date("%Y%m%d").alias("date"))
-        .drop("__path__")
+        for date, files in groups
     )
 
 

@@ -26,7 +26,7 @@ Four patterns:
 
 | `file_layout` | Loader | Behavior |
 |---|---|---|
-| `date` | `load_data_date(df_type, date_str)` | Resolves each date to `df_type/YYYYMMDD.parquet`, skips missing files (prints `missing_dates`), and `scan_parquet`s the surviving list. |
+| `date` | `load_data_date(df_type, date_str)` | Resolves each date to `df_type/YYYYMMDD.parquet`, or to `df_type/date=YYYYMMDD/*.parquet` when the flat file is absent (both forms may coexist in one dataset). Skips dates with no files (prints `missing_dates`) and concats one scan per date, stamping the `date` column from the label. |
 | `hive_sym` | `load_data_hive_sym(df_type, date_str, sym)` | Enumerates `sym=*` subdirs when `sym is None`, else uses the passed syms. Reads `df_type/sym=S/YYYYMMDD.parquet` per (sym, date) with `hive_partitioning=True` so `sym` is restored as a column. |
 | `single` | `load_data_single(df_type)` | Scans `df_type/` as a single hive-partitioned dataset; `date_str` is ignored. |
 | `single_hive_sym` | `load_data_single(df_type)` | Same as `single` — `hive_partitioning=True` picks up the `sym=...` partition automatically. |
