@@ -139,7 +139,7 @@ class Df(_DfBase):
 
         if not has_time and (time_col := df_type_dict.get("time")):
             if isinstance(schema[time_col], pl.Datetime):
-                expr.append(pl.col(time_col).alias("time"))
+                expr.append(pl.col(time_col).dt.convert_time_zone(time_zone).alias("time"))
             else:
                 expr.append(pl.col(time_col).cast(pl.Datetime("ns")).dt.convert_time_zone(time_zone).alias("time"))
             has_time = True

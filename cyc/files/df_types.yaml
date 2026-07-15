@@ -150,3 +150,7 @@ a_stock_index:
   calendar: sse
   data:
     path: /Users/yichenchen/data
+
+MarketDataTrades:
+  time: TimeRecv
+  instrument_id: InstrumentId
