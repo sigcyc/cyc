@@ -154,3 +154,13 @@ a_stock_index:
 MarketDataTrades:
   time: TimeRecv
   instrument_id: InstrumentId
+  enum:
+    exchange: Exchange
+
+MarketDataQuotes:
+  time: TimeRecv
+  instrument_id: InstrumentId
+
+MarketDataBars:
+  time: TimeRecv
+  instrument_id: InstrumentId

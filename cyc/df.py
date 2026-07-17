@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpe
 
 import polars as pl
 
+import cyc_types
 from cyc_ref_data import instrument_id_to_sym, sym_to_instrument_id
 
 from .config import get_calendar, get_df_type_dict
@@ -147,6 +148,10 @@ class Df(_DfBase):
         if not has_date and (date_col := df_type_dict.get("date")):
             expr.append(pl.col(date_col).alias("date"))
             has_date = True
+
+        for column, enum_name in df_type_dict.get("enum", {}).items():
+            enum_type = getattr(cyc_types, enum_name)
+            expr.append(pl.col(column).cast(pl.Enum([member.name for member in enum_type])))
 
         lf = lf.with_columns(expr)
 

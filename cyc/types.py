@@ -8,6 +8,7 @@ class DfType(TypedDict):
     sym: str
     time: NotRequired[str]
     date: NotRequired[str]
+    enum: NotRequired[dict[str, str]]  # column name -> cyc_types enum class name
     data: dict[str, str]
     calendar: str # time zone and trading-day calendar
     file_layout: NotRequired[Optional[Literal["hive_sym", "single", "single_hive_sym"]]]
