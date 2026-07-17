@@ -69,6 +69,10 @@ class Df(_DfBase):
     df_type: str
 
     def __init__(self, df: pl.DataFrame, df_type: str = "default") -> None:
+        """
+        We didn't put _enrich in this functionally intentionally because filter etc return Df and we want this
+        initialization to be lightweight
+        """
         self.df = df
         self.df_type = df_type
 
@@ -115,6 +119,9 @@ class Df(_DfBase):
                 else:
                     new_columns.append(col)
             self.df = self.df.with_columns(new_columns)
+
+    def enrich(self) -> None:
+        self.df = self._enrich(self.df.lazy(), self.df_type).collect()
 
     @classmethod
     def _enrich(cls, lf: pl.LazyFrame, df_type: str) -> pl.LazyFrame:
