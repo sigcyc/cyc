@@ -155,7 +155,7 @@ MarketDataTrades:
   time: TimeRecv
   instrument_id: InstrumentId
   enum:
-    exchange: Exchange
+    Exchange: Exchange
 
 MarketDataQuotes:
   time: TimeRecv
