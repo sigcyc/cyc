@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import importlib
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpec, overload
 
@@ -80,6 +81,9 @@ class Df(_DfBase):
     def load_data(cls, df_type: str, date_str: str | pl.Series | None = None, sym: SymType = None) -> Df:
         lf = load_data(df_type, date_str, sym)
         lf = cls._enrich(lf, df_type)
+        # only here, not in _enrich: modules like form13f scale values, so re-running enrich() must not re-apply
+        if module := get_df_type_dict(df_type).get("enrich"):
+            lf = importlib.import_module(f"cyc.enrich.{module}").enrich(lf)
         lf = lf.filter(filter_sym(sym))  # after _enrich so the canonical "sym" column exists
         return Df(lf.collect(), df_type)
 

@@ -9,6 +9,7 @@ class DfType(TypedDict):
     time: NotRequired[str]
     date: NotRequired[str]
     enum: NotRequired[dict[str, str]]  # column name -> cyc_types enum class name
+    enrich: NotRequired[str]  # module in cyc.enrich exposing enrich(lf) -> lf
     data: dict[str, str]
     calendar: str # time zone and trading-day calendar
     file_layout: NotRequired[Optional[Literal["hive_sym", "single", "single_hive_sym"]]]

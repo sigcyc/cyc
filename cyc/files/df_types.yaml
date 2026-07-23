@@ -90,6 +90,7 @@ form13f:
   sym: underlying_symbol
   date: period_of_report
   file_layout: single
+  enrich: form13f
 
 pdd_earnings:
   cols:
