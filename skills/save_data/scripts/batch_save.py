@@ -2,13 +2,13 @@ import typer
 import subprocess
 from multiprocessing import Pool
 from pathlib import Path
-from cyc.config import get_calendar
+from cyc.config import get_calendar, get_data_path
 from cyc.util_time import parse_dates
 
 
-def _run_one(args: tuple[str, str, list[str]]) -> tuple[str, subprocess.CompletedProcess]:
-    script, date, extra = args
-    cmd = ["python", script, "--date", date, "--write"] + extra
+def _run_one(args: tuple[str, str, str]) -> tuple[str, subprocess.CompletedProcess]:
+    script, date, data_dir = args
+    cmd = ["python", script, "--date", date, "--data-dir", data_dir, "--write"]
     return date, subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -20,10 +20,10 @@ def main(
 ):
     df_type = Path(script).stem.removeprefix("save_")
     dates = parse_dates(date, get_calendar(df_type))
-    print(f"{len(dates)} dates ({df_type}), {processes} processes", flush=True)
+    data_dir = data_dir or str(get_data_path(df_type))
+    print(f"{len(dates)} dates ({df_type}) -> {data_dir}, {processes} processes", flush=True)
 
-    extra = ["--data-dir", data_dir] if data_dir else []
-    tasks = [(script, d, extra) for d in dates]
+    tasks = [(script, d, data_dir) for d in dates]
 
     results = []
     with Pool(processes) as pool:
