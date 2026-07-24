@@ -1,8 +1,9 @@
+from datetime import datetime
 from pathlib import Path
 
 import polars as pl
 
-from .config import get_data_path, get_calendar, get_file_layout
+from .config import get_data_path, get_calendar, get_df_type_dict, get_file_layout
 from .types import SymType
 from .util_time import parse_dates
 
@@ -38,7 +39,7 @@ def _date_files(data_root: Path, date: str) -> list[Path]:
 
 def load_data(df_type: str, date_str: str | pl.Series | None = None, sym: SymType = None) -> pl.LazyFrame:
     """
-    single | single_hive_sym: date_str and sym are ignored
+    single | single_hive_sym: sym is ignored; date_str filters rows on the yaml date column (plain range, no calendar)
     date: sym is ignored
     """
     match get_file_layout(df_type):
@@ -46,7 +47,7 @@ def load_data(df_type: str, date_str: str | pl.Series | None = None, sym: SymTyp
             assert date_str is not None
             return load_data_hive_sym(df_type, date_str, sym)
         case "single" | "single_hive_sym":
-            return load_data_single(df_type)
+            return load_data_single(df_type, date_str)
         case "date":
             assert date_str is not None
             return load_data_date(df_type, date_str)
@@ -54,12 +55,21 @@ def load_data(df_type: str, date_str: str | pl.Series | None = None, sym: SymTyp
             raise ValueError("Unknown file_layout")
 
 
-def load_data_single(df_type: str) -> pl.LazyFrame:
-    return pl.scan_parquet(
+def load_data_single(df_type: str, date_str: str | pl.Series | None = None) -> pl.LazyFrame:
+    lf = pl.scan_parquet(
         get_data_path(df_type) / "**/*.parquet",
         hive_partitioning=True,
         missing_columns="insert",
     )
+    if date_str is None:
+        return lf
+    date_col = pl.col(get_df_type_dict(df_type).get('date', 'date'))
+    if isinstance(date_str, pl.Series):
+        return lf.filter(date_col.is_in(date_str.implode()))
+    start_str, _, end_str = date_str.partition("-")
+    start = datetime.strptime(start_str, "%Y%m%d").date()
+    end = datetime.strptime(end_str, "%Y%m%d").date() if end_str else start
+    return lf.filter(date_col.is_between(start, end))
 
 
 def load_data_date(df_type: str, date_str: str | pl.Series) -> pl.LazyFrame:
