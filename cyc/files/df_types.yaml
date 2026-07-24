@@ -86,8 +86,8 @@ a_futures_study:
 
 form13f:
   cols:
-    core: [sym, date, cusip, value, shares]
-  sym: underlying_symbol
+    core: [sym, sym_und, date, value, shares, shares_type, manager_name, other_manager_names]
+  sym: sym
   date: period_of_report
   file_layout: single
   enrich: form13f
