@@ -59,6 +59,22 @@ def test_df_s_suffixes_duplicate_a_columns():
     assert selected["col1_3"].to_list() == [1, 2]
 
 
+def test_df_s_filters_named_sym_column():
+    df = Df(
+        pl.DataFrame({
+            "sym": ["A", "B"],
+            "underlying_sym": ["X", "Y"],
+            "time": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+            "price": [1, 2],
+        })
+    )
+
+    selected = df.s(("underlying_sym", "Y"), a=["price"])
+
+    assert selected.columns == ["underlying_sym", "time", "price"]
+    assert selected["underlying_sym"].to_list() == ["Y"]
+
+
 def test_load_data():
     df = load_data("polygon_test", "20241211-20241213")
 
