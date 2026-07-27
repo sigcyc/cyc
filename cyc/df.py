@@ -23,11 +23,11 @@ _DfBase = pl.DataFrame if TYPE_CHECKING else object
 P = ParamSpec("P")
 
 
-def filter_sym(sym: SymType, name: str = "sym") -> pl.Expr:
+def filter_sym(sym: SymType, sym_column: str = "sym") -> pl.Expr:
     if sym is None:
         return pl.lit(True)
     syms = [sym] if isinstance(sym, (str, int)) else list(sym)
-    return pl.col(name).is_in(syms)
+    return pl.col(sym_column).is_in(syms)
 
 
 def concat_df2(df1: pl.DataFrame | Df, df2: pl.DataFrame | Df) -> pl.DataFrame:
@@ -182,7 +182,7 @@ class Df(_DfBase):
 
     def s(
         self,
-        sym: tuple[str, SymType] | SymType = None,
+        sym: SymType = None,
         time_start: Optional[str] = None,
         time_end: Optional[str] = None,
         o: Optional[list[str]] = None,  # column groups in df_types.yaml
@@ -191,6 +191,7 @@ class Df(_DfBase):
         f: pl.Series | pl.Expr = pl.lit(True),
         date: Optional[str] = None,
         n: Optional[int] = None,
+        sym_column: str = "sym",
     ) -> Df:
         """
         Select columns down to sym + time + whatever o/a/r name, then filter rows.
@@ -203,7 +204,7 @@ class Df(_DfBase):
         5. f, an arbitrary boolean expression
 
         Args:
-            sym: "TSLA", a list of symbols, or ("column_name", symbols)
+            sym: "TSLA" or a list of symbols; filtered against sym_column
             time_start: "9:40" or "9:40:03.5"
             time_end: "9:40" or "9:40:03.5"
             date: "20250102"
@@ -212,16 +213,11 @@ class Df(_DfBase):
             a: with_columns expressions, always shown (names existing columns too)
             n: sample n rows and re-sort by time
         """
-        if isinstance(sym, tuple):
-            sym_name, sym = sym
-        else:
-            sym_name = "sym"
-
         df_type_dict = get_df_type_dict(self.df_type)
         groups = [col for group in o or [] for col in df_type_dict["cols"][group]]
         # No selector at all -> show every column; otherwise sym/time plus the
         # columns o and a name. r adds its regex matches on top either way.
-        pinned = [name for name in (sym_name, "time") if name in self.df.columns]
+        pinned = [name for name in (sym_column, "time") if name in self.df.columns]
         selected = [*groups] if (o or r or a) else self.df.columns
         col_list = list(dict.fromkeys([*pinned, *selected]))
 
@@ -261,8 +257,8 @@ class Df(_DfBase):
         )
 
         filters = [f]
-        if sym_name in df.columns:
-            filters.append(filter_sym(sym, sym_name))
+        if sym_column in df.columns:
+            filters.append(filter_sym(sym, sym_column))
 
         if "time" in df.columns:
             time_since_midnight = pl.col("time") - pl.col("time").dt.truncate("1d")

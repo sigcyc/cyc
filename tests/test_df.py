@@ -69,7 +69,7 @@ def test_df_s_filters_named_sym_column():
         })
     )
 
-    selected = df.s(("underlying_sym", "Y"), a=["price"])
+    selected = df.s("Y", a=["price"], sym_column="underlying_sym")
 
     assert selected.columns == ["underlying_sym", "time", "price"]
     assert selected["underlying_sym"].to_list() == ["Y"]
