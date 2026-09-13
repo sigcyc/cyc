@@ -10,7 +10,7 @@ from .joiner import Joiner
 
 def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str] | dict[str, str]) -> pl.DataFrame:
     """
-    Join stock_data_day fields onto self by (sym, date).
+    Join us_stock_day fields onto self by (sym, date).
 
     Args:
         sym: name of the symbol column in self
@@ -24,10 +24,10 @@ def add_stock(self: pl.DataFrame, sym: str, date: str, fields: str | list[str] |
     if isinstance(fields, str):
         fields = [fields]
     mapping = fields if isinstance(fields, dict) else {f: f for f in fields}
-    stock_data = load_data("stock_data_day", self[date].unique()).collect()
+    stock_data = load_data("us_stock_day", self[date].unique()).collect()
     # Joiner collapses duplicate (ticker, date) keys on the right (keep last), so the
     # output is always len(self) rows. A plain left join would fan out on the handful
-    # of dup rows in stock_data_day (e.g. NEXN 2025-02-18, TTSH 2025-12-16).
+    # of dup rows in us_stock_day (e.g. NEXN 2025-02-18, TTSH 2025-12-16).
     joiner = Joiner.join([self[sym], self[date]], [stock_data["ticker"], stock_data["date"]])
     return self.with_columns(
         [joiner.get(stock_data[name_old]).alias(name_new) for name_old, name_new in mapping.items()]
@@ -63,7 +63,7 @@ def _get_spot(sym: pl.Series, date: pl.Series, num_days: int, field: str) -> pl.
         return add_stock(df, "sym", "date", field)[field]
 
     if num_days > 0:
-        next_day = next_trading_day(date, get_calendar("stock_data_day"))
+        next_day = next_trading_day(date, get_calendar("us_stock_day"))
         spot = _get_spot(sym, next_day, num_days - 1, field)
         next_df = pl.DataFrame({"sym": sym, "date": next_day})
         adj = add_stock(next_df, "sym", "date", ["dividend", "split"])
@@ -71,7 +71,7 @@ def _get_spot(sym: pl.Series, date: pl.Series, num_days: int, field: str) -> pl.
         split = adj["split"].fill_null(1)
         return spot * split + dividend
 
-    prev_day = previous_trading_day(date, get_calendar("stock_data_day"))
+    prev_day = previous_trading_day(date, get_calendar("us_stock_day"))
     spot = _get_spot(sym, prev_day, num_days + 1, field)
     adj = add_stock(df, "sym", "date", ["dividend", "split"])
     dividend = adj["dividend"].fill_null(0)

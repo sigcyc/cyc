@@ -4,7 +4,7 @@ from cyc.df import Df
 
 
 def test_add_stock_single_field():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_stock("sym", "date", "close")
     assert "close" in result.columns
@@ -13,7 +13,7 @@ def test_add_stock_single_field():
 
 
 def test_add_stock_multiple_fields():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_stock("sym", "date", ["open", "close"])
     assert "open" in result.columns
@@ -22,7 +22,7 @@ def test_add_stock_multiple_fields():
 
 
 def test_add_spot_current_day():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA")
     expected_close = nvda["close"]
     result = nvda.select("sym", "date").add_spot("sym", "date", 0)
@@ -32,7 +32,7 @@ def test_add_spot_current_day():
 
 
 def test_add_spot_forward():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_spot("sym", "date", 1)
     assert "spot_d1" in result.columns
@@ -41,7 +41,7 @@ def test_add_spot_forward():
 
 
 def test_add_spot_backward():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_spot("sym", "date", -1)
     assert "spot_dm1" in result.columns
@@ -50,7 +50,7 @@ def test_add_spot_backward():
 
 
 def test_add_stock_dict_rename():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_stock("sym", "date", {"close": "px"})
     assert "px" in result.columns
@@ -60,7 +60,7 @@ def test_add_stock_dict_rename():
 
 
 def test_add_spot_custom_name():
-    df = Df.load_data("stock_data_day", "20210715-20210721")
+    df = Df.load_data("us_stock_day", "20210715-20210721")
     nvda = df.s("NVDA").select("sym", "date")
     result = nvda.add_spot("sym", "date", 0, name="my_spot")
     assert "my_spot" in result.columns

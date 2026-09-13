@@ -5,7 +5,7 @@ from cyc.data_loaders import load_data
 
 
 def test_accum_ratiop():
-    df = load_data("stock_data_day", "20241211-20241214").collect()
+    df = load_data("us_stock_day", "20241211-20241214").collect()
 
     df = df.with_columns(
         pl.col("window_start").cast(pl.Datetime("ns")).dt.date().alias("date"),

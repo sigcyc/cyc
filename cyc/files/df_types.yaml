@@ -30,13 +30,13 @@ instrument_id_test:
 
 # dividend is on ex_dividend_date
 # split 4 means yesterday price is 4x today's price
-stock_data_day:
+us_stock_day:
   cols:
     core: [sym, close]
   time: window_start
   sym: ticker
 
-stock_data_min1:
+us_stock_min1:
   cols:
     core: [sym, close]
   data:

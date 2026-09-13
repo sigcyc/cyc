@@ -293,7 +293,7 @@ class TestEnrichInstrumentId:
     def test_derives_instrument_id_from_sym(self):
         lf = pl.LazyFrame({"ticker": ["TSLA", "AAPL", "UNKNOWN"], "window_start": [datetime(2024, 1, 2, 9, 30)] * 3})
 
-        out = Df._enrich(lf, "stock_data_day").collect()
+        out = Df._enrich(lf, "us_stock_day").collect()
 
         assert out["instrument_id"].to_list() == [8, 7, None]
         assert out["instrument_id"].dtype == pl.UInt32

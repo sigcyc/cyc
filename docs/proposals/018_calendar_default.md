@@ -11,7 +11,7 @@ Every public function in `cyc/util_time.py` takes `calendar: str = "nyse"`. User
 1. Two calendar architectures already coexist. The data path is already right: calendar is a property of the df_type, declared in `df_types.yaml`, resolved by `config.get_calendar(df_type)` inside `load_data`, `Df._enrich`, and `batch_save`. Users never pass it. The pain is only in the free date-math functions (`parse_dates`, `next_trading_day`, `previous_trading_day`, `next_standard_expiration`).
 2. "One calendar per project" cannot mean the repo: `df_types.yaml` uses nyse, sse, and all_days simultaneously. It means one calendar per session/script. So the ambient default must be process-scoped, not repo-scoped and not call-scoped.
 3. The default "nyse" is defined four times: `df_types.yaml` `default.calendar`, the hard fallback in `config.py:22`, four public signatures, and two private cached functions in `util_time.py`. Four sources of truth for one fact.
-4. `data_finance._get_spot` calls `next_trading_day(date)` bare. It is correct only by accident (`stock_data_day` happens to be nyse). Under any ambient-default scheme this becomes a real bug: a session set to sse would silently corrupt spot adjustment.
+4. `data_finance._get_spot` calls `next_trading_day(date)` bare. It is correct only by accident (`us_stock_day` happens to be nyse). Under any ambient-default scheme this becomes a real bug: a session set to sse would silently corrupt spot adjustment.
 
 ## Design
 
@@ -30,7 +30,7 @@ Anything keyed by a df_type gets that df_type's calendar from yaml. The session 
 
 1. `cyc/util_time.py` owns the session default: module variable `_default_calendar = "nyse"` plus `set_default_calendar(name)`, exported from `cyc`. Public functions take `calendar: str | None = None` and resolve `calendar or _default_calendar` once at the boundary. Private functions (`_is_trading_day`, `_next_standard_expiration`, `_step_trading_day`): calendar is a required parameter with no default. Uniform rule — public resolves once at the boundary, private takes a concrete string. `lru_cache` keys stay concrete, so changing the session default mid-process cannot serve stale entries.
 2. `cyc/config.py`: delete the hard `"nyse"` fallback in `get_calendar` — the catalog fallback is yaml `default.calendar`; if that line is missing, fail loud. No session state in config.
-3. `cyc/data_finance.py`: `_get_spot` passes `get_calendar("stock_data_day")` explicitly. House rule: code inside `cyc/` always passes calendar explicitly (derived from the df_type it touches); only end-user scripts lean on the ambient default.
+3. `cyc/data_finance.py`: `_get_spot` passes `get_calendar("us_stock_day")` explicitly. House rule: code inside `cyc/` always passes calendar explicitly (derived from the df_type it touches); only end-user scripts lean on the ambient default.
 4. `cyc/types.py`: fix the stale comment `calendar: str  # calendar for time zone` — calendar also drives trading-day logic in the loading path.
 
 User experience: an A-share script starts with `set_default_calendar("sse")` and every date-math call in that process follows. A US script writes nothing. Mixed-market data loading keeps working because it never consults the session default.
