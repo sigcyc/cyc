@@ -150,6 +150,15 @@ a_stock_index:
   data:
     path: /Users/yichenchen/data
 
+us_stock_financials:
+  cols:
+    core: [sym, date]
+  sym: sym
+  date: date
+  calendar: nyse
+  data:
+    path: /Volumes/ssd
+
 # SOFR fixings from the NY Fed API, one value date per file (cyc_ref_data
 # jobs/save_sofr.py). No sym: single time series. Bond-market holidays where
 # NYSE is open (Columbus Day, Veterans Day) have no fixing.
