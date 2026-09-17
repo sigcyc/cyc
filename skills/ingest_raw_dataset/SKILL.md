@@ -6,25 +6,14 @@ argument-hint: DATASET path file_layout
 
 ## Inputs
 
-- `DATASET` — the raw dataset: a directory or a single file. Also the working directory for this skill's own artifacts (`columns.yaml` when any column needs renaming, `convert.py`).
+- `DATASET` — the raw dataset: a directory or a single file. Also the working directory for this skill's own artifacts (`columns.yaml` when any column needs renaming, `save_DATASET.py`).
 - `path` — where to write the normalized output. Registered as `data.path` and resolved by `cyc.config.get_data_path("DATASET")`.
 - `file_layout` — target layout, one of the patterns in `~/.claude/skills/ingest_raw_dataset/data_pipeline.md`.
-
-## Fast path — `convert.py` already exists
-
-Check for `DATASET/convert.py` FIRST. If it exists, this skill already ran for this dataset: the column mapping, the `df_types.yaml` entry, and the script are all in place. Skip every step below — no survey, no file reading, no column mapping, no registration, no dry-run, no confirmation. Just run it:
-
-```bash
-python DATASET/convert.py   # no args = convert all raw files
-```
-
-Report its stdout. If it fails, show the error and stop — do NOT regenerate `convert.py` or any other artifact unless the user explicitly asks for a rebuild. Safety Rules still apply.
 
 ## Reference — use these; do NOT open `cyc/` source to re-derive them
 
 The only `cyc` facts this skill needs are below. Reading `config.py`, `data_loaders.py`, or `df.py` to rediscover them is wasted work — they do not change.
 
-- **`cyc.config.get_data_path(DATASET) -> Path`** — output root. Equals `<data.path>/DATASET`.
 - **Verify** (step 6): `Df.load_data(DATASET, date) -> Df`; then `df.head(10)._A` (side-effecting pretty-printer, prints to stdout).
 - **File layouts → on-disk paths**: the four patterns (`date`, `hive_sym`, `single`, `single_hive_sym`) are tabulated in `data_pipeline.md`, symlinked in this skill dir. Read that file, not the loader source.
 - **`df_types.yaml` entry shape** (step 4):
@@ -32,13 +21,15 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
   DATASET:
     cols:
       core: [sym, time]   # or [sym, date]
-    sym: sym              # canonical name produced by convert.py (post-rename)
+    sym: sym              # canonical name produced by save_DATASET.py (post-rename)
     time: time            # or  date: date
+    calendar: nyse        # default may be omitted; else sse / all_days. batch_save expands the date range with it.
     file_layout: date     # default 'date' may be omitted; else hive_sym / single / single_hive_sym
     data:
-      path: <path input>  # so get_data_path(DATASET) == <path>/DATASET
+      path: <path input>  # so get_data_path(DATASET) == <path>/DATASET; batch_save passes it as --data-dir
   ```
-- **Conversion script** (step 5): copy `convert_template.py` (in this dir) to `DATASET/convert.py` and fill the `<...>` placeholders. Do not author it from scratch.
+- **Save script** (step 5): copy `save_template.py` (in this dir) to `DATASET/save_DATASET.py` and fill the `<...>` placeholders. Do not author it from scratch.
+- **Running it** (steps 6, 7): invoke the `save_data` skill with `DATASET/save_DATASET.py <date or range>`. It derives the df_type from the filename and the output dir from the registry entry. Do not run the script's own loop — it has none.
 
 ## Steps
 
@@ -57,33 +48,36 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
      - Non-English columns: translate to English.
      - English columns containing ` ` or `-`: replace ` ` and `-` with `_`.
    - **If at least one column needs renaming:** create `DATASET/columns.yaml` mapping `raw_name: output_name` for those columns only, then ask the user to review it before proceeding and monitor the file for edits.
-   - **If no column needs renaming:** skip this step entirely — do NOT create `columns.yaml`, and do not ask the user to review anything. The convert script passes every column through unchanged. (Required output columns like `sym`/`date` that don't exist in the raw file are derived in `convert.py`, not via a rename, so they never belong in `columns.yaml`.)
+   - **If no column needs renaming:** skip this step entirely — do NOT create `columns.yaml`, and do not ask the user to review anything. The save script passes every column through unchanged. (Required output columns like `sym`/`date` that don't exist in the raw file are derived in `save_DATASET.py`, not via a rename, so they never belong in `columns.yaml`.)
 
 4. **Register in `cyc/files/df_types.yaml`**
    - `cyc` is the util package installed in the Python environment.
-   - Add an entry for `DATASET` with: `sym`, `time` (or `date`), `data.path`, `file_layout` (entry shape in Reference above).
+   - Add an entry for `DATASET` with: `sym`, `time` (or `date`), `calendar`, `data.path`, `file_layout` (entry shape in Reference above).
    - Set `data.path` to the `path` input, so `cyc.config.get_data_path("DATASET")` resolves the output directory.
+   - Set `calendar` to match the days the raw data has files for. batch_save runs one date per calendar day: a raw file on a non-calendar day is never converted, a calendar day with no raw file is a FAIL.
    - If `DATASET` is a single file, set `file_layout` to `single`.
-   - Do this before writing the script so the script can call `get_data_path("DATASET")`.
+   - Do this before running the script so batch_save can resolve the output dir and calendar.
 
-5. **Write a conversion script at `DATASET/convert.py`**
-   - Start from `convert_template.py` in this skill dir (see Reference); copy it and fill the `<...>`. Do not author from scratch or open `cyc/` source.
+5. **Write a save script at `DATASET/save_DATASET.py`**
+   - Start from `save_template.py` in this skill dir (see Reference); copy it and fill the `<...>`. Do not author from scratch or open `cyc/` source.
    - Put the script in the dataset directory (not inline / not in a notebook) so it is reproducible and version-controllable.
-   - Responsibilities:
-     - Read one raw file from `raw_src`.
+   - The filename must be `save_DATASET.py` — batch_save derives the df_type from it.
+   - Responsibilities, for one `date`:
+     - Map `date` to its raw file in `raw_src` (`raw_file`).
      - Rename the columns listed in `DATASET/columns.yaml` if that file exists; if it does not exist, perform no renames.
      - Pass through all other columns with names unchanged.
      - Cast to the required output schema (see below).
-     - Write parquet files in the `file_layout` layout, rooted at `cyc.config.get_data_path("DATASET")`.
+     - Write one parquet file in the `file_layout` layout under `data_dir` (passed in by batch_save; the script must not compute its own output root).
    - **Output schema requirement**: every output file MUST contain:
      - `sym` — `pl.String` or `pl.UInt64`
      - At least one of (both allowed):
        - `time` — `pl.Datetime("ns")`
        - `date` — `pl.Date`
    - **Do NOT drop any columns** from the raw file, even if they look redundant.
+   - `single` / `single_hive_sym`: there is no date dimension. `raw_file` returns the one raw file, the write path is `part0.parquet`, and steps 6–7 run the script directly once (`python DATASET/save_DATASET.py --data-dir <path>/DATASET --write`) instead of through batch_save.
 
-6. **Dry-run on a single file and verify**
-   - Run `DATASET/convert.py` on ONE raw file.
+6. **Dry-run on a single date and verify**
+   - Invoke the `save_data` skill with `DATASET/save_DATASET.py <one date>`.
    - Verify via the project loader (do not just inspect the parquet directly). You MUST run this exact snippet via `python -c` (or equivalent) and paste the real stdout into chat — do NOT substitute `print(df)`, `df.df`, or any other rendering, and do NOT paraphrase the output. `_A` is a side-effecting pretty-printer; its output is the artifact the user reviews:
      ```python
      from cyc import Df
@@ -93,7 +87,8 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
    - Show the raw stdout to the user and WAIT for explicit confirmation before proceeding.
 
 7. **Convert all data**
-   - Only after step 6 is confirmed, run `DATASET/convert.py` across the full date range.
+   - Only after step 6 is confirmed, invoke the `save_data` skill with `DATASET/save_DATASET.py <full date range>`.
+   - Re-running the conversion later is a plain `save_data` invocation; it is not this skill's job.
 
 ## Safety Rules
 
