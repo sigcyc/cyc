@@ -183,8 +183,8 @@ class TestPlotSpec:
         assert left["encoding"]["y"]["axis"]["orient"] == "left"
         assert right["encoding"]["y"]["axis"]["orient"] == "right"
         # both TSLA_a and UBER_a live on the same layer → same y-scale
-        assert left["encoding"]["y"]["axis"]["title"] == "TSLA_a,UBER_a"
-        assert right["encoding"]["y"]["axis"]["title"] == "TSLA_b,UBER_b"
+        assert left["encoding"]["y"]["axis"]["title"] == ["TSLA_a, UBER_a"]
+        assert right["encoding"]["y"]["axis"]["title"] == ["TSLA_b, UBER_b"]
 
     def test_combined_layer_data_split_by_side(self):
         a = self._make_df("TSLA", n=3).p(["a"], ["b"])

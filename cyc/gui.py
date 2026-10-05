@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from datetime import datetime
 from typing import TYPE_CHECKING, Iterable, Literal, cast
 
@@ -81,7 +82,8 @@ class PlotSpec:
         return "%Y%m%d" if tmin.date() != tmax.date() else "%H:%M:%S"
 
     def _layer(self, data: pl.DataFrame, orient: Literal["left", "right"], time_format: str, color: alt.Scale) -> alt.Chart:
-        title = ",".join(data["series"].unique(maintain_order=True).to_list())[:100]
+        # A list title renders one line per item; ~6px per char.
+        title = textwrap.wrap(", ".join(data["series"].unique(maintain_order=True)), self.height // 6, max_lines=3, placeholder="...")
         return (
             alt.Chart(data)
             .mark_line()
