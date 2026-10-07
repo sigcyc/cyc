@@ -1,4 +1,5 @@
 from typing import Optional
+from itertools import pairwise
 import shutil
 import numpy as np
 import polars as pl
@@ -180,12 +181,6 @@ def _plot(
     return PlotSpec([(plotted, left_cols, right_cols)], width=width)
 
 
-def sort_cut(df: pl.DataFrame, cut_name):
-    if cut_name in df.columns and not isinstance(df.schema[cut_name], pl.Struct):
-        raise ValueError(f"{cut_name!r}: pass include_breaks=True to pl.cut")
-    return df.unnest(cut_name).sort("breakpoint", maintain_order=True).drop("breakpoint").rename({"category": cut_name})
-
-
 @njit(cache=True)
 def _ewm_sum(value: np.ndarray, time: np.ndarray, alpha: float) -> np.ndarray:
     """
@@ -219,13 +214,14 @@ class Cyc:
             lambda s: _ewm_sum(s.struct[0].to_numpy(), s.struct[1].dt.timestamp().to_numpy(), alpha)
         )
 
-    def cut(self, breaks, f=pl.lit(True), **kwargs):
-        """Cut into bins, keeping length. Rows where `f` is false go to the
-        `filtered` bucket, which sorts last (NaN breakpoint)."""
+    def cut(self, breaks, f=pl.lit(True)):
+        """Cut into right-closed bins like "(0, 100]", keeping length. The result is an
+        Enum, so bins sort in order; rows where `f` is false go to the `filtered`
+        bucket, which sorts last."""
         name = self._value.meta.output_name()
-        cut = self._value.cut(breaks, include_breaks=True, **kwargs)
-        filtered = pl.struct(breakpoint=pl.lit(float("nan")), category=pl.lit("filtered"))
-        return pl.when(f).then(cut).otherwise(filtered).alias(f"{name}_cut")
+        labels = [f"({left}, {right}]" for left, right in pairwise(["-inf", *map(str, breaks), "inf"])]
+        bins = self._value.bin_intervals(breaks, labels=labels, right_closed=True).cast(pl.Enum([*labels, "filtered"]))
+        return pl.when(f).then(bins).otherwise(pl.lit("filtered")).alias(f"{name}_cut")
 
 
 setattr(pl.DataFrame, "_T", property(_print_transpose))
@@ -233,5 +229,4 @@ setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "des", _des)
 setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "marble", marble)
-setattr(pl.DataFrame, "sort_cut", sort_cut)
 setattr(pl.DataFrame, "gs", gs)

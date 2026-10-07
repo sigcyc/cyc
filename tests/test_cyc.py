@@ -71,38 +71,34 @@ class TestCut:
             "volume": [1,   2,     3,    4,     5,     6],
         })
 
-    def _cats(self, df):
-        """Bin labels in original row order."""
-        return df["close_cut"].struct.field("category").to_list()
-
     def test_default_keeps_all(self):
         """Without f, every row is binned and no filtered bucket appears."""
         out = self._df().select(pl.col("close").cyc.cut([0, 100, 300]))
         assert out.height == 6
         assert out.columns == ["close_cut"]
-        assert "filtered" not in self._cats(out)
+        assert "filtered" not in out["close_cut"].to_list()
 
     def test_filter_preserves_length(self):
         """f does not drop rows; excluded rows land in the filtered bucket."""
         out = self._df().select(pl.col("close").cyc.cut([0, 100, 300], f=pl.col("close") > 0))
         assert out.height == 6  # -10.0 kept, not dropped
-        assert self._cats(out)[5] == "filtered"  # the -10.0 row
+        assert out["close_cut"][5] == "filtered"  # the -10.0 row
 
     def test_usable_in_with_columns(self):
         """Length is preserved, so cut can sit alongside full-length columns."""
         out = self._df().with_columns(pl.col("close").cyc.cut([0, 100, 300], f=pl.col("volume") >= 4))
         assert out.height == 6
         # rows with volume < 4 (the first three) are filtered out
-        assert self._cats(out) == ["filtered", "filtered", "filtered", "(300, inf]", "(100, 300]", "(-inf, 0]"]
+        assert out["close_cut"].to_list() == ["filtered", "filtered", "filtered", "(300, inf]", "(100, 300]", "(-inf, 0]"]
 
-    def test_sort_cut_unfiltered(self):
-        """sort_cut orders bins by breakpoint, low bin first."""
+    def test_sort_unfiltered(self):
+        """The cut is an Enum, so a plain sort orders bins low to high."""
         out = self._df().select(pl.col("close").cyc.cut([0, 100, 300]))
-        cats = out.sort_cut("close_cut")["close_cut"].to_list()
+        cats = out.sort("close_cut")["close_cut"].to_list()
         assert cats == ["(-inf, 0]", "(0, 100]", "(0, 100]", "(100, 300]", "(100, 300]", "(300, inf]"]
 
-    def test_sort_cut_puts_filtered_last(self):
+    def test_sort_puts_filtered_last(self):
         """The filtered bucket sorts after every real bin."""
         out = self._df().select(pl.col("close").cyc.cut([0, 100, 300], f=pl.col("close") > 0))
-        cats = out.sort_cut("close_cut")["close_cut"].to_list()
+        cats = out.sort("close_cut")["close_cut"].to_list()
         assert cats == ["(0, 100]", "(0, 100]", "(100, 300]", "(100, 300]", "(300, inf]", "filtered"]

@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Iterable, Literal
 import polars as pl
 from polars.selectors import Selector
-from .data_frame_monkey_patch import sort_cut
 
 if TYPE_CHECKING:
     from polars._typing import IntoExpr
@@ -64,30 +63,6 @@ def accum_ratiop(
     )
 
     return pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
-
-
-def _is_cut(dtype: pl.DataType) -> bool:
-    """A cyc.cut column is a struct carrying both breakpoint and category."""
-    return isinstance(dtype, pl.Struct) and {f.name for f in dtype.fields} >= {"breakpoint", "category"}
-
-
-def _key_col(df: pl.DataFrame, key: pl.Expr) -> pl.Expr:
-    """Accessor recomputing a dimension's key from the original dataframe.
-
-    `df` holds the grouped key; a cyc.cut struct is reduced to its category
-    label so it matches the pivoted/sorted key.
-    """
-    return key.struct.field("category") if _is_cut(df.schema[key.meta.output_name()]) else key
-
-
-def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
-    normal_columns = []
-    for name in columns:
-        if _is_cut(df.schema[name]):
-            df = sort_cut(df, name)
-        else:
-            normal_columns.append(name)
-    return df.sort(normal_columns, maintain_order=True) if normal_columns else df
 
 
 def _with_margins(cells: pl.DataFrame) -> pl.DataFrame:
@@ -183,16 +158,20 @@ class GroupBy:
             self.df.with_columns(**dict(zip(sums, values)))
             .group_by(self.row + self.column)
             .agg(pl.col(sums).sum())
+            .sort(row)
         )
-        ordered = _sort_grouped(grouped, row + column)
-        pivots = [ordered.pivot(on=column, index=row, values=s, aggregate_function="sum") for s in sums]
+        column_keys = grouped.select(column).unique().sort(column)
+        pivots = [
+            grouped.pivot(on=column, on_columns=column_keys, index=row, values=s, aggregate_function="sum")
+            for s in sums
+        ]
         labels = pl.concat([pivots[0].select(pl.col(row).cast(pl.String)), pl.DataFrame(dict.fromkeys(row, footer))])
         return GroupByResult(
             labels.hstack(combine(*(_with_margins(pivot.drop(row)) for pivot in pivots))),
-            [_key_col(grouped, key) for key in self.row],
-            [_key_col(grouped, key) for key in self.column],
+            self.row,
+            self.column,
             pivots[0].select(row).rows(),
-            ordered.select(column).unique(maintain_order=True).rows(),
+            column_keys.rows(),
         )
 
 

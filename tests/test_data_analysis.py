@@ -9,7 +9,7 @@ def test_accum_ratiop():
 
     df = df.with_columns(
         pl.col("window_start").cast(pl.Datetime("ns")).dt.date().alias("date"),
-        pl.col("close").cut([0, 100, 300, 1000]).alias("bkt_price"),
+        pl.col("close").cyc.cut([0, 100, 300, 1000]).alias("bkt_price"),
     )
 
     accum_ratiop(df, 'bkt_price', 'date', 'volume')
@@ -164,3 +164,13 @@ def test_gb_accepts_expression_keys():
 
     assert result.df["price_cut"].to_list() == ["(0, 100]", "(100, 300]", "col_sum"]
     assert sorted(result.filter(df, 0, None)["price"].to_list()) == [5.0, 50.0]
+
+
+def test_gb_sorts_rows_and_columns_independently():
+    # "A" has only the high bin and the low bin has only "B", so sorting one axis scrambles the other
+    df = pl.DataFrame({"grp": ["A", "B", "B"], "price": [50.0, 5.0, 50.0]})
+
+    result = gb(df, pl.col("price").cyc.cut([10]), "grp").len().df
+
+    assert result.columns == ["price_cut", "A", "B", "row_sum"]
+    assert result.rows() == [("(-inf, 10]", 0, 1, 1), ("(10, inf]", 1, 1, 2), ("col_sum", 1, 2, 3)]
