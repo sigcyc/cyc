@@ -11,7 +11,7 @@ import cyc_types
 from cyc_ref_data import instrument_id_to_sym, sym_to_instrument_id
 
 from .config import get_calendar, get_df_type_dict
-from .data_analysis import accum_ratio, accum_ratiop
+from .data_analysis import accum_ratiop, gb
 from .data_finance import add_spot, add_stock
 from .data_loaders import load_data
 from .types import SymType
@@ -176,8 +176,8 @@ class Df(_DfBase):
 
     add_stock = wrap_df_func(add_stock)
     add_spot = wrap_df_func(add_spot)
-    accum_ratio = wrap_df_func(accum_ratio)
     accum_ratiop = wrap_df_func(accum_ratiop)
+    gb = wrap_df_func(gb)
     concat_df2 = wrap_df_func(concat_df2)
 
     def s(

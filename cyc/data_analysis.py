@@ -1,8 +1,15 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Iterable, Literal
+from typing import TYPE_CHECKING, Callable, Iterable, Literal
 import polars as pl
 from polars.selectors import Selector
 from .data_frame_monkey_patch import sort_cut
+
+if TYPE_CHECKING:
+    from polars._typing import IntoExpr
+
+Keys = str | pl.Expr | Iterable[str | pl.Expr]  # column name(s) or expression(s)
 
 
 def accum_ratiop(
@@ -64,14 +71,13 @@ def _is_cut(dtype: pl.DataType) -> bool:
     return isinstance(dtype, pl.Struct) and {f.name for f in dtype.fields} >= {"breakpoint", "category"}
 
 
-def _key_col(df: pl.DataFrame, name: str, base: pl.Expr) -> pl.Expr:
+def _key_col(df: pl.DataFrame, key: pl.Expr) -> pl.Expr:
     """Accessor recomputing a dimension's key from the original dataframe.
 
-    `base` reaches the dimension (a column reference, the user's expression, or a
-    constant for a dummy column); a cyc.cut struct is reduced to its category
+    `df` holds the grouped key; a cyc.cut struct is reduced to its category
     label so it matches the pivoted/sorted key.
     """
-    return base.struct.field("category") if _is_cut(df.schema[name]) else base
+    return key.struct.field("category") if _is_cut(df.schema[key.meta.output_name()]) else key
 
 
 def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
@@ -84,8 +90,14 @@ def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
     return df.sort(normal_columns, maintain_order=True) if normal_columns else df
 
 
+def _with_margins(cells: pl.DataFrame) -> pl.DataFrame:
+    """Append each row's total as a `row_sum` column and each column's total as a last row."""
+    cells = cells.with_columns(row_sum=pl.sum_horizontal(pl.all()))
+    return pl.concat([cells, cells.sum()])
+
+
 @dataclass(repr=False)
-class AccumRatioResult:
+class GroupByResult:
     df: pl.DataFrame
     row: list[pl.Expr]
     column: list[pl.Expr]
@@ -116,7 +128,7 @@ class AccumRatioResult:
             conds.append(any_of(self.column, self.column_keys, column))
         return df.filter(pl.all_horizontal(conds))
 
-    def add_index(self) -> "AccumRatioResult":
+    def add_index(self) -> GroupByResult:
         """Display copy: each value cell shows `value (row,column)` for filter()."""
         n_rows, n_row_columns = len(self.row_keys), len(self.row)
         val_cols = self.df.columns[n_row_columns:n_row_columns + len(self.column_keys)]
@@ -130,90 +142,64 @@ class AccumRatioResult:
         return self
 
 
-def _resolve_columns(
-    df: pl.DataFrame, spec, dummy: str
-) -> tuple[pl.DataFrame, list[str], list[pl.Expr]]:
-    """Resolve a row/column spec to real columns; return (df, names, accessors).
+def _exprs(keys: Keys) -> list[pl.Expr]:
+    keys = [keys] if isinstance(keys, (str, pl.Expr)) else keys
+    return [pl.col(k) if isinstance(k, str) else k for k in keys]
 
-    `spec` is a name, an expression, a list of either, or None. Expressions are
-    materialized onto `df`; None becomes one constant column so the no-dimension
-    case collapses into the ordinary single-column case. `accessors` recompute
-    each key from the *original* dataframe (used by AccumRatioResult.filter).
+
+@dataclass
+class GroupBy:
+    """Row x column group-by; each statistic comes back as a pivot table with margins."""
+
+    df: pl.DataFrame
+    row: list[pl.Expr]
+    column: list[pl.Expr]
+
+    def ratio(self, numerator: IntoExpr, denominator: IntoExpr) -> GroupByResult:
+        """sum(numerator) / sum(denominator) in every cell and margin; row_sum/col_sum total the denominator."""
+
+        def combine(num: pl.DataFrame, den: pl.DataFrame) -> pl.DataFrame:
+            ratio = (num / den).rename({"row_sum": "row_ratio"}).with_columns(den["row_sum"])
+            return pl.concat([ratio, den.tail(1)], how="diagonal_relaxed")
+
+        return self._table([numerator, denominator], combine, ["col_ratio", "col_sum"])
+
+    def sum(self, value: IntoExpr) -> GroupByResult:
+        """sum(value) in every cell, with row_sum/col_sum margins."""
+        return self._table([value], lambda table: table, ["col_sum"])
+
+    def len(self) -> GroupByResult:
+        """Row count in every cell, with row_sum/col_sum margins."""
+        return self.sum(1)
+
+    def _table(
+        self, values: list[IntoExpr], combine: Callable[..., pl.DataFrame], footer: list[str]
+    ) -> GroupByResult:
+        """Group once, pivot each value's sum with margins, then label the rows of `combine(*tables)`."""
+        sums = [f"__{i}__" for i in range(len(values))]
+        row = [key.meta.output_name() for key in self.row]
+        column = [key.meta.output_name() for key in self.column]
+        grouped = (
+            self.df.with_columns(**dict(zip(sums, values)))
+            .group_by(self.row + self.column)
+            .agg(pl.col(sums).sum())
+        )
+        ordered = _sort_grouped(grouped, row + column)
+        pivots = [ordered.pivot(on=column, index=row, values=s, aggregate_function="sum") for s in sums]
+        labels = pl.concat([pivots[0].select(pl.col(row).cast(pl.String)), pl.DataFrame(dict.fromkeys(row, footer))])
+        return GroupByResult(
+            labels.hstack(combine(*(_with_margins(pivot.drop(row)) for pivot in pivots))),
+            [_key_col(grouped, key) for key in self.row],
+            [_key_col(grouped, key) for key in self.column],
+            pivots[0].select(row).rows(),
+            ordered.select(column).unique(maintain_order=True).rows(),
+        )
+
+
+def gb(df: pl.DataFrame, row: Keys, column: Keys = pl.lit("all")) -> GroupBy:
+    """Group by row x column keys; .ratio/.sum/.len each return a pivot table with margins.
+
+    Keys are column names or expressions, e.g. pl.col("x").cyc.cut([...]). The
+    default column is one constant "all" column, which makes a one-way table.
     """
-    if spec is None:
-        return df.with_columns(pl.lit("all").alias(dummy)), [dummy], [pl.lit("all")]
-    spec = [spec] if isinstance(spec, (str, pl.Expr)) else list(spec)
-    exprs = [e for e in spec if isinstance(e, pl.Expr)]
-    if exprs:
-        df = df.with_columns(exprs)
-    names = [e if isinstance(e, str) else e.meta.output_name() for e in spec]
-    accessors = [pl.col(e) if isinstance(e, str) else e for e in spec]
-    return df, names, accessors
-
-
-def accum_ratio(
-    df: pl.DataFrame,
-    row: str | pl.Expr | Iterable[str | pl.Expr],
-    column: str | pl.Expr | Iterable[str | pl.Expr] | None,
-    val1: str | pl.Expr,
-    val2: str | pl.Expr,
-    f: str | pl.Expr | None = None,
-) -> AccumRatioResult:
-    if f is not None:
-        df = df.filter(f)
-
-    df = df.with_columns(__num__=val1, __denom__=val2)
-    df, row, row_accessors = _resolve_columns(df, row, "__row__")
-    df, column, column_accessors = _resolve_columns(df, column, "__column__")
-
-    grouped = df.group_by(row + column).agg(
-        pl.col("__num__").sum(),
-        pl.col("__denom__").sum(),
-    )
-    grouped = _sort_grouped(grouped, row + column)
-
-    pv_num = grouped.pivot(on=column, index=row, values="__num__", aggregate_function="sum")
-    pv_denom = grouped.pivot(on=column, index=row, values="__denom__", aggregate_function="sum")
-    val_cols = [c for c in pv_num.columns if c not in row]
-
-    # Cell ratios
-    pv = pv_num.select(row).with_columns((pv_num[c] / pv_denom[c]).alias(c) for c in val_cols)
-
-    # Row marginals
-    row_sum_num = pl.sum_horizontal(pv_num.select(val_cols))
-    row_sum_denom = pl.sum_horizontal(pv_denom.select(val_cols))
-    pv = pv.with_columns(
-        (row_sum_num / row_sum_denom).alias("row_ratio"),
-        row_sum_denom.alias("row_sum"),
-    )
-
-    # Column marginals
-    col_sum_num = pv_num.select(val_cols).sum()
-    col_sum_denom = pv_denom.select(val_cols).sum()
-    grand_num = col_sum_num.sum_horizontal()[0]
-    grand_denom = col_sum_denom.sum_horizontal()[0]
-    footer = pl.DataFrame(
-        [
-            {
-                **dict.fromkeys(row, "col_ratio"),
-                **{c: None if col_sum_denom[c][0] == 0 else col_sum_num[c][0] / col_sum_denom[c][0] for c in val_cols},
-                "row_ratio": grand_num / grand_denom,
-                "row_sum": None,
-            },
-            {
-                **dict.fromkeys(row, "col_sum"),
-                **{c: col_sum_denom[c][0] for c in val_cols},
-                "row_ratio": None,
-                "row_sum": grand_denom,
-            },
-        ]
-    )
-
-    result = pl.concat([pv.with_columns(pl.col(c).cast(pl.String) for c in row), footer], how="vertical_relaxed")
-    return AccumRatioResult(
-        result,
-        [_key_col(df, n, a) for n, a in zip(row, row_accessors)],
-        [_key_col(df, n, a) for n, a in zip(column, column_accessors)],
-        pv_num.select(row).rows(),
-        grouped.select(column).unique(maintain_order=True).rows(),
-    )
+    return GroupBy(df, _exprs(row), _exprs(column))

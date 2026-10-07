@@ -1,6 +1,6 @@
 import polars as pl
 import cyc.data_frame_monkey_patch  # noqa: F401 - registers the cyc expression namespace
-from cyc.data_analysis import accum_ratio, accum_ratiop
+from cyc.data_analysis import accum_ratiop, gb
 from cyc.data_loaders import load_data
 
 
@@ -15,7 +15,7 @@ def test_accum_ratiop():
     accum_ratiop(df, 'bkt_price', 'date', 'volume')
 
 
-def test_accum_ratio():
+def test_gb_ratio():
     df = pl.DataFrame({
         "cat": ["A", "A", "B", "B"],
         "grp": ["X", "Y", "X", "Y"],
@@ -23,7 +23,7 @@ def test_accum_ratio():
         "denom": [100, 200, 300, 400],
     })
 
-    result = accum_ratio(df, "cat", "grp", "num", "denom").df
+    result = gb(df, "cat", "grp").ratio("num", "denom").df
 
     # Cell ratios: 10/100=0.1, 20/200=0.1, 30/300=0.1, 40/400=0.1
     assert result[0, "X"] == 0.1
@@ -50,7 +50,7 @@ def test_accum_ratio():
     assert result[3, "Y"] == 600
 
 
-def test_accum_ratio_accepts_expr_values_and_sorts():
+def test_gb_ratio_accepts_expr_values_and_sorts():
     df = pl.DataFrame({
         "cat": ["B", "A", "B", "A"],
         "grp": ["Y", "Y", "X", "X"],
@@ -58,7 +58,7 @@ def test_accum_ratio_accepts_expr_values_and_sorts():
         "denom": [400, 200, 300, 100],
     })
 
-    result = accum_ratio(df, "cat", "grp", pl.col("num") * 2, pl.col("denom")).df
+    result = gb(df, "cat", "grp").ratio(pl.col("num") * 2, pl.col("denom")).df
 
     assert result.columns == ["cat", "X", "Y", "row_ratio", "row_sum"]
     assert result["cat"].to_list() == ["A", "B", "col_ratio", "col_sum"]
@@ -67,22 +67,7 @@ def test_accum_ratio_accepts_expr_values_and_sorts():
     assert result[2, "row_ratio"] == 0.2
 
 
-def test_accum_ratio_filters_before_ratio():
-    df = pl.DataFrame({
-        "cat": ["A", "A"],
-        "grp": ["X", "X"],
-        "num": [10, 90],
-        "denom": [100, 900],
-        "keep": [True, False],
-    })
-
-    result = accum_ratio(df, "cat", "grp", "num", "denom", f=pl.col("keep")).df
-
-    assert result[0, "X"] == 0.1
-    assert result[0, "row_sum"] == 100
-
-
-def test_accum_ratio_handles_zero_column_denominator():
+def test_gb_ratio_zero_denominator_is_inf():
     df = pl.DataFrame({
         "cat": ["A", "A"],
         "grp": ["X", "Y"],
@@ -90,14 +75,14 @@ def test_accum_ratio_handles_zero_column_denominator():
         "denom": [0, 100],
     })
 
-    result = accum_ratio(df, "cat", "grp", "num", "denom").df
+    result = gb(df, "cat", "grp").ratio("num", "denom").df
     col_ratio = result.filter(pl.col("cat") == "col_ratio")
 
-    assert col_ratio[0, "X"] is None
+    assert col_ratio[0, "X"] == float("inf")
     assert col_ratio[0, "Y"] == 0.2
 
 
-def test_accum_ratio_sorts_cut_rows_and_columns():
+def test_gb_sorts_cut_rows_and_columns():
     df = pl.DataFrame({
         "grp": ["B", "A", "A", "B", "B", "B"],
         "price": [250.0, 50.0, 150.0, 500.0, 5.0, -1.0],
@@ -105,7 +90,7 @@ def test_accum_ratio_sorts_cut_rows_and_columns():
         "denom": [10, 20, 30, 40, 50, 60],
     }).with_columns(pl.col("price").cyc.cut([0, 100, 300], f=pl.col("price") > 0))
 
-    row_result = accum_ratio(df, "price_cut", "grp", "num", "denom").df
+    row_result = gb(df, "price_cut", "grp").ratio("num", "denom").df
 
     assert row_result.columns == ["price_cut", "A", "B", "row_ratio", "row_sum"]
     assert row_result["price_cut"].to_list() == [
@@ -117,7 +102,7 @@ def test_accum_ratio_sorts_cut_rows_and_columns():
         "col_sum",
     ]
 
-    column_result = accum_ratio(df, "grp", "price_cut", "num", "denom").df
+    column_result = gb(df, "grp", "price_cut").ratio("num", "denom").df
 
     assert column_result.columns == [
         "grp",
@@ -131,7 +116,7 @@ def test_accum_ratio_sorts_cut_rows_and_columns():
     assert column_result["grp"].to_list() == ["A", "B", "col_ratio", "col_sum"]
 
 
-def test_accum_ratio_filter_maps_cut_cells_back():
+def test_gb_filter_maps_cut_cells_back():
     df = pl.DataFrame({
         "grp": ["B", "A", "A", "B", "B", "B"],
         "price": [250.0, 50.0, 150.0, 500.0, 5.0, -1.0],
@@ -139,9 +124,43 @@ def test_accum_ratio_filter_maps_cut_cells_back():
         "denom": [10, 20, 30, 40, 50, 60],
     }).with_columns(pl.col("price").cyc.cut([0, 100, 300], f=pl.col("price") > 0))
 
-    result = accum_ratio(df, "price_cut", "grp", "num", "denom")
+    result = gb(df, "price_cut", "grp").ratio("num", "denom")
 
     # rows: ["(0, 100]", "(100, 300]", "(300, inf]", "filtered"]; columns: ["A", "B"]
     assert result.filter(df, 0, 0)["num"].to_list() == [2]      # (0, 100] & A
     assert sorted(result.filter(df, None, 0)["num"].to_list()) == [2, 3]  # all of A
     assert result.filter(df, 3, 1)["num"].to_list() == [6]      # filtered & B
+
+
+def test_gb_sum_and_len():
+    df = pl.DataFrame({
+        "cat": ["A", "A", "B", "B", "B"],
+        "grp": ["X", "Y", "X", "Y", "Y"],
+        "num": [10, 20, 30, 40, 50],
+    })
+
+    sums = gb(df, "cat", "grp").sum("num").df
+    assert sums.columns == ["cat", "X", "Y", "row_sum"]
+    assert sums.rows() == [("A", 10, 20, 30), ("B", 30, 90, 120), ("col_sum", 40, 110, 150)]
+
+    counts = gb(df, "cat", "grp").len().df
+    assert counts.rows() == [("A", 1, 1, 2), ("B", 1, 2, 3), ("col_sum", 2, 3, 5)]
+
+
+def test_gb_without_column_is_one_way():
+    df = pl.DataFrame({"cat": ["A", "B", "B"]})
+
+    result = gb(df, "cat").len()
+
+    assert result.df.columns == ["cat", "all", "row_sum"]
+    assert result.df.rows() == [("A", 1, 1), ("B", 2, 2), ("col_sum", 3, 3)]
+    assert result.filter(df, 1, 0)["cat"].to_list() == ["B", "B"]
+
+
+def test_gb_accepts_expression_keys():
+    df = pl.DataFrame({"grp": ["B", "A", "A", "B"], "price": [250.0, 50.0, 150.0, 5.0]})
+
+    result = gb(df, pl.col("price").cyc.cut([0, 100, 300]), "grp").len()
+
+    assert result.df["price_cut"].to_list() == ["(0, 100]", "(100, 300]", "col_sum"]
+    assert sorted(result.filter(df, 0, None)["price"].to_list()) == [5.0, 50.0]
