@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Iterable, Literal
 import polars as pl
 from polars.selectors import Selector
+from .data_frame_monkey_patch import sort_cut
 
 
 def accum_ratiop(
@@ -77,7 +78,7 @@ def _sort_grouped(df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
     normal_columns = []
     for name in columns:
         if _is_cut(df.schema[name]):
-            df = df.sort_cut(name)
+            df = sort_cut(df, name)
         else:
             normal_columns.append(name)
     return df.sort(normal_columns, maintain_order=True) if normal_columns else df

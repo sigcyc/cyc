@@ -180,7 +180,7 @@ def _plot(
     return PlotSpec([(plotted, left_cols, right_cols)], width=width)
 
 
-def _sort_cut(df: pl.DataFrame, cut_name):
+def sort_cut(df: pl.DataFrame, cut_name):
     if cut_name in df.columns and not isinstance(df.schema[cut_name], pl.Struct):
         raise ValueError(f"{cut_name!r}: pass include_breaks=True to pl.cut")
     return df.unnest(cut_name).sort("breakpoint", maintain_order=True).drop("breakpoint").rename({"category": cut_name})
@@ -233,5 +233,5 @@ setattr(pl.DataFrame, "_A", property(_print_all))
 setattr(pl.DataFrame, "des", _des)
 setattr(pl.DataFrame, "p", _plot)
 setattr(pl.DataFrame, "marble", marble)
-setattr(pl.DataFrame, "sort_cut", _sort_cut)
+setattr(pl.DataFrame, "sort_cut", sort_cut)
 setattr(pl.DataFrame, "gs", gs)
