@@ -30,7 +30,7 @@ instrument_id_test:
 
 # dividend is on ex_dividend_date
 # split 4 means yesterday price is 4x today's price
-us_stock_day:
+us_stock_d1:
   cols:
     core: [sym, close]
   time: window_start
@@ -52,7 +52,7 @@ crypto:
   calendar: all_days
   file_layout: hive_sym
 
-a_futures:
+cn_index_d1:
   cols:
     core: [sym, date, close]
   sym: sym
@@ -66,14 +66,14 @@ a_futures_all:
   date: date
   file_layout: single_hive_sym
 
-a_futures_instrument:
+cn_futures_d1:
   cols:
     core: [sym, date, close, open_interest]
   sym: sym
   date: date
   calendar: sse
 
-a_futures_instrument__index:
+cn_futures_d1__index:
 
 a_futures_study:
   cols:
