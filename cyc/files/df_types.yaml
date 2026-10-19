@@ -39,10 +39,9 @@ us_stock_d1:
 us_stock_min1:
   cols:
     core: [sym, close]
-  data:
   time: window_start
   sym: ticker
-  script: data_script/massive_stock_data
+  script: data_scripts/massive_data/save_us_stock_min1.py
 
 
 crypto:
@@ -72,6 +71,7 @@ cn_futures_d1:
   sym: sym
   date: date
   calendar: sse
+  script: data_scripts/cn_futures/save_cn_futures_d1.py
 
 cn_futures_d1__index:
 
@@ -101,13 +101,13 @@ pdd_earnings:
 
 # scheduled market-moving events (CPI, FOMC, index rebalances, ...); all_days
 # calendar so events on non-NYSE days (e.g. NFP on Good Friday) are not skipped.
-# script: data_scripts/market_moving_events
 market_moving_events:
   cols:
     core: [sym, time]
   sym: sym
   time: time
   calendar: all_days
+  script: data_scripts/market_moving_events/scripts/save_market_moving_events.py
 
 # A-share LJApi Level-2 dumps, parsed by the Rust a_stock_parser binary
 # (~/workspace/a_stock_market_data_parser/docs/agent_skill_spec.md). One lossless
