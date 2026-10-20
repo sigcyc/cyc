@@ -7,8 +7,13 @@ import exchange_calendars as xcals
 import polars as pl
 
 _CALENDAR_CODES = {"nyse": "XNYS", "sse": "XSHG"}
-# all_days has no exchange; it trades around the clock, so anchor it to America.
-_CALENDAR_TIME_ZONES = {"nyse": "America/New_York", "sse": "Asia/Shanghai", "all_days": "America/New_York"}
+# all_days and quarter_end have no exchange, so anchor them to America.
+_CALENDAR_TIME_ZONES = {
+    "nyse": "America/New_York",
+    "sse": "Asia/Shanghai",
+    "all_days": "America/New_York",
+    "quarter_end": "America/New_York",
+}
 
 _default_calendar = "nyse"
 
@@ -134,6 +139,8 @@ def next_trading_day(date: pl.Series, calendar: str | None = None) -> pl.Series:
 def _is_trading_day(day: Date, calendar: str) -> bool:
     if calendar == "all_days":
         return True
+    if calendar == "quarter_end":
+        return day.month % 3 == 0 and (day + timedelta(days=1)).day == 1
     return _exchange_calendar(calendar).is_session(day)
 
 

@@ -59,6 +59,11 @@ def test_parse_date_skips_holidays():
     ]
 
 
+def test_parse_date_quarter_end():
+    # calendar quarter ends, weekends included: all three are Sundays
+    assert parse_dates("20231201-20240701", "quarter_end") == ["20231231", "20240331", "20240630"]
+
+
 def test_seconds_since_midnight():
     # 2024-06-03 13:30:00 UTC == 09:30 America/New_York (EDT) == 21:30 Asia/Shanghai
     summer = 1_717_421_400 * 10**9

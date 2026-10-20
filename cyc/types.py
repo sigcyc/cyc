@@ -13,3 +13,4 @@ class DfType(TypedDict):
     data: dict[str, str]
     calendar: str # time zone and trading-day calendar
     file_layout: NotRequired[Optional[Literal["hive_sym", "single", "single_hive_sym"]]]
+    script: NotRequired[str]  # save script, relative to the folder holding the cyc clone, or absolute

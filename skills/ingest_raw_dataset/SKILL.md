@@ -23,13 +23,14 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
       core: [sym, time]   # or [sym, date]
     sym: sym              # canonical name produced by save_DATASET.py (post-rename)
     time: time            # or  date: date
-    calendar: nyse        # default may be omitted; else sse / all_days. batch_save expands the date range with it.
+    calendar: nyse        # default may be omitted; else sse / all_days / quarter_end. batch_save expands the date range with it.
     file_layout: date     # default 'date' may be omitted; else hive_sym / single / single_hive_sym
     data:
       path: <path input>  # so get_data_path(DATASET) == <path>/DATASET; batch_save passes it as --data-dir
+    script: <DATASET/save_DATASET.py>  # relative to the folder holding the cyc clone if inside it, else absolute
   ```
 - **Save script** (step 5): copy `save_template.py` (in this dir) to `DATASET/save_DATASET.py` and fill the `<...>` placeholders. Do not author it from scratch.
-- **Running it** (steps 6, 7): invoke the `save_data` skill with `DATASET/save_DATASET.py <date or range>`. It derives the df_type from the filename and the output dir from the registry entry. Do not run the script's own loop — it has none.
+- **Running it** (steps 6, 7): invoke the `save_data` skill with the df_type and `<date or range>`. It finds the script via the `script:` key and the output dir from the registry entry. Do not run the script's own loop — it has none.
 
 ## Steps
 
@@ -52,7 +53,7 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
 
 4. **Register in `cyc/files/df_types.yaml`**
    - `cyc` is the util package installed in the Python environment.
-   - Add an entry for `DATASET` with: `sym`, `time` (or `date`), `calendar`, `data.path`, `file_layout` (entry shape in Reference above).
+   - Add an entry for `DATASET` with: `sym`, `time` (or `date`), `calendar`, `data.path`, `file_layout`, `script` (entry shape in Reference above).
    - Set `data.path` to the `path` input, so `cyc.config.get_data_path("DATASET")` resolves the output directory.
    - Set `calendar` to match the days the raw data has files for. batch_save runs one date per calendar day: a raw file on a non-calendar day is never converted, a calendar day with no raw file is a FAIL.
    - If `DATASET` is a single file, set `file_layout` to `single`.
@@ -74,10 +75,10 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
        - `time` — `pl.Datetime("ns")`
        - `date` — `pl.Date`
    - **Do NOT drop any columns** from the raw file, even if they look redundant.
-   - `single` / `single_hive_sym`: there is no date dimension. `raw_file` returns the one raw file, the write path is `part0.parquet`, and steps 6–7 run the script directly once (`python DATASET/save_DATASET.py --data-dir <path>/DATASET --write`) instead of through batch_save.
+   - `single` / `single_hive_sym`: there is no date dimension. `raw_file` returns the one raw file, the write path is `part0.parquet`, and steps 6–7 invoke `save_data` with the df_type and no date range; it runs the script once.
 
 6. **Dry-run on a single date and verify**
-   - Invoke the `save_data` skill with `DATASET/save_DATASET.py <one date>`.
+   - Invoke the `save_data` skill with `DATASET <one date>` (the df_type registered in step 4).
    - Verify via the project loader (do not just inspect the parquet directly). You MUST run this exact snippet via `python -c` (or equivalent) and paste the real stdout into chat — do NOT substitute `print(df)`, `df.df`, or any other rendering, and do NOT paraphrase the output. `_A` is a side-effecting pretty-printer; its output is the artifact the user reviews:
      ```python
      from cyc import Df
@@ -87,7 +88,7 @@ The only `cyc` facts this skill needs are below. Reading `config.py`, `data_load
    - Show the raw stdout to the user and WAIT for explicit confirmation before proceeding.
 
 7. **Convert all data**
-   - Only after step 6 is confirmed, invoke the `save_data` skill with `DATASET/save_DATASET.py <full date range>`.
+   - Only after step 6 is confirmed, invoke the `save_data` skill with `DATASET <full date range>`.
    - Re-running the conversion later is a plain `save_data` invocation; it is not this skill's job.
 
 ## Safety Rules

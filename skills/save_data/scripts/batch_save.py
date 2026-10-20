@@ -2,26 +2,34 @@ import typer
 import subprocess
 from multiprocessing import Pool
 from pathlib import Path
-from cyc.config import get_calendar, get_data_path
+from cyc.config import get_calendar, get_data_path, get_file_layout, get_script_path
 from cyc.util_time import parse_dates
+
+
+def _resolve(target: str) -> tuple[str, str]:
+    """(script, df_type) from a save_<df_type>.py path, or from a df_type's `script:` key."""
+    if Path(target).is_file():
+        return target, Path(target).stem.removeprefix("save_")
+    return str(get_script_path(target)), target
 
 
 def _run_one(args: tuple[str, str, str]) -> tuple[str, subprocess.CompletedProcess]:
     script, date, data_dir = args
-    cmd = ["python", script, "--date", date, "--data-dir", data_dir, "--write"]
+    cmd = ["python", script, "--data-dir", data_dir, "--write"] + (["--date", date] if date else [])
     return date, subprocess.run(cmd, capture_output=True, text=True)
 
 
 def main(
-    script: str,
-    date: str,
+    target: str,
+    date: str = typer.Argument(""),
     processes: int = 18,
     data_dir: str | None = None,
 ):
-    df_type = Path(script).stem.removeprefix("save_")
-    dates = parse_dates(date, get_calendar(df_type))
+    script, df_type = _resolve(target)
+    # single layouts have no date dimension: one run, without --date
+    dates = [""] if get_file_layout(df_type).startswith("single") else parse_dates(date, get_calendar(df_type))
     data_dir = data_dir or str(get_data_path(df_type))
-    print(f"{len(dates)} dates ({df_type}) -> {data_dir}, {processes} processes", flush=True)
+    print(f"{script}: {len(dates)} dates ({df_type}) -> {data_dir}, {processes} processes", flush=True)
 
     tasks = [(script, d, data_dir) for d in dates]
 

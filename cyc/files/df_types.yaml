@@ -35,6 +35,7 @@ us_stock_d1:
     core: [sym, close]
   time: window_start
   sym: ticker
+  script: data_scripts/massive_data/save_us_stock_d1.py
 
 us_stock_min1:
   cols:
@@ -166,6 +167,7 @@ sofr:
   cols:
     core: [date, rate, volume_billions]
   date: value_date
+  script: cyc_ref_data/jobs/save_sofr.py
 
 MarketDataTrades:
   time: TimeRecv

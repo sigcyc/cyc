@@ -3,6 +3,7 @@ import yaml
 from .types import DfType
 
 _DF_TYPES_PATH = Path(__file__).resolve().parent / "files" / "df_types.yaml"
+_WORKSPACE = _DF_TYPES_PATH.parents[3]  # repos are cloned side by side
 
 
 def _load_yaml() -> dict:
@@ -22,9 +23,14 @@ def get_calendar(df_type: str) -> str:
     return config[get_df_type_parent(df_type)].get("calendar", config["default"]["calendar"])
 
 
-def get_file_layout(df_type: str) -> str | None:
+def get_file_layout(df_type: str) -> str:
     config = _load_yaml()
     return config[get_df_type_parent(df_type)].get("file_layout", "date")
+
+
+def get_script_path(df_type: str) -> Path:
+    """Save script for df_type: its `script:` key, relative to the folder holding the cyc clone, or absolute."""
+    return _WORKSPACE / Path(get_df_type_dict(df_type)["script"]).expanduser()
 
 
 def get_data_dir() -> Path:
